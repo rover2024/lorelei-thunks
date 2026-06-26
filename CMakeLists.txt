@@ -1,0 +1,117 @@
+cmake_minimum_required(VERSION 3.19)
+
+project(lorethunk
+    VERSION 0.0.1.0
+    LANGUAGES C CXX
+    DESCRIPTION "Lorelei thunk libraries."
+    HOMEPAGE_URL "https://github.com/rover2024/lorelei"
+)
+
+# ----------------------------------
+# Build Options
+# ----------------------------------
+option(THUNK_BUILD_HOST_TARGETS "Build host thunk targets" ON)
+option(THUNK_BUILD_GUEST_TARGETS "Build guest thunk targets" OFF)
+option(THUNK_INSTALL "Install thunk libraries" ON)
+
+# Semicolon-separated list of thunk library names to skip, matched against each thunk's
+# subdirectory name (e.g. -DTHUNK_DISABLE_LIBRARIES="zlib;SDL2").
+set(THUNK_DISABLE_LIBRARIES "" CACHE STRING "Thunk libraries to skip building")
+
+# ----------------------------------
+# CMake Settings
+# ----------------------------------
+if(MSVC)
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /manifest:no")
+    set(CMAKE_MODULE_LINKER_FLAGS "${CMAKE_MODULE_LINKER_FLAGS} /manifest:no")
+    set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} /manifest:no")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /utf-8")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /utf-8")
+elseif(MINGW)
+    set(CMAKE_STATIC_LIBRARY_PREFIX "")
+    set(CMAKE_SHARED_LIBRARY_PREFIX "")
+    set(CMAKE_IMPORT_LIBRARY_PREFIX "")
+endif()
+
+if(THUNK_INSTALL)
+    include(GNUInstallDirs)
+    include(CMakePackageConfigHelpers)
+endif()
+
+# ----------------------------------
+# Dependencies
+# ----------------------------------
+find_package(qmsetup REQUIRED)
+qm_import(Filesystem)
+
+if(NOT DEFINED QMSETUP_BUILD_DIR)
+    set(QMSETUP_BUILD_DIR "${CMAKE_CURRENT_BINARY_DIR}/out")
+endif()
+
+qm_init_directories()
+
+# lorelei provides LoreTLC (the thunk compiler), the LoreGuestRT/LoreHostRT runtimes, and
+# the ThunkInterface headers that the generated sources include.
+find_package(lorelei REQUIRED)
+
+# ----------------------------------
+# Project Variables
+# ----------------------------------
+set(THUNK_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
+
+if(NOT DEFINED THUNK_INSTALL_SHARE_DIR)
+    set(THUNK_INSTALL_SHARE_DIR ${CMAKE_INSTALL_DATADIR})
+endif()
+
+# Directory holding each thunk's TLC stat result (ThunkStat.json). When the caller points
+# this at a pre-generated directory, stat is skipped (the files are taken as-is) and not
+# installed; otherwise stat runs into the build tree and the results are installed so they
+# can be reused later. The thunk sources are always regenerated, so they are never installed.
+if(NOT DEFINED THUNK_DATA_DIR)
+    set(THUNK_DATA_DIR_USER_DEFINED FALSE)
+    set(THUNK_DATA_DIR ${QMSETUP_BUILD_DIR}/share/lorelei/thunks)
+else()
+    set(THUNK_DATA_DIR_USER_DEFINED TRUE)
+endif()
+
+# Directory the generated thunk sources (Thunk_{guest,host}.cpp) are emitted into. They are
+# regenerated every build and never installed.
+if(NOT DEFINED THUNK_GEN_SOURCE_DIR)
+    set(THUNK_GEN_SOURCE_DIR ${QMSETUP_BUILD_DIR}/src/thunks)
+endif()
+
+include("cmake/LoreThunkBuildApi.cmake")
+
+# ----------------------------------
+# Add thunks
+# ----------------------------------
+add_subdirectory(src)
+
+# Install the generated stat results unless the caller supplied their own data directory.
+if(THUNK_INSTALL AND NOT THUNK_DATA_DIR_USER_DEFINED)
+    install(DIRECTORY ${THUNK_DATA_DIR}/
+        DESTINATION ${THUNK_INSTALL_SHARE_DIR}/lorelei/thunks
+    )
+endif()
+
+if(THUNK_INSTALL)
+    # Install the public headers.
+    install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include/
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+    )
+
+    # Install shared data (ThunkDB.json, ...)
+    include("share/install.cmake")
+
+    # Install the support libraries (midware, ...)
+    get_property(_thunk_has_exports GLOBAL PROPERTY THUNK_HAS_EXPORTS)
+
+    if(_thunk_has_exports)
+        qm_basic_install(
+            NAME ${PROJECT_NAME}
+            VERSION ${PROJECT_VERSION}
+            NAMESPACE lorethunk::
+            EXPORT lorethunkTargets
+        )
+    endif()
+endif()
