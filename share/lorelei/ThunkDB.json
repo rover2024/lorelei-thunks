@@ -1,24 +1,10 @@
 {
     "forwardThunks": [
-        "libEGL",
-        "libGL",
-        "libGLX",
-        "libOpenGL",
-        {
-            "name": "libSDL",
-            "alias": [
-                "libSDL-1.2"
-            ]
-        },
         {
             "name": "libSDL2",
             "alias": [
                 "libSDL2-2.0"
             ]
-        },
-        {
-            "name": "libvulkan",
-            "hostLibrary": "libvulkan.so.1"
         },
         "libz"
     ],
