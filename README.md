@@ -1,6 +1,6 @@
 # LORETHUNK
 
-Lorethunk is a collection of thunk libraries for [Lorelei](https://github.com/rover2024/lorelei), the cross-ISA compatibility layer. Each thunk library lets an emulated guest program call one native host library (zlib, SDL, ...) so the real work runs at host speed instead of being emulated.
+LoreThunk is a collection of thunk libraries for [Lorelei](https://github.com/rover2024/lorelei), the cross-ISA compatibility layer. Each thunk library lets an emulated guest program call one native host library (zlib, SDL, ...) so the real work runs at host speed instead of being emulated.
 
 ## How it works
 
@@ -24,7 +24,7 @@ Because the address space is shared, pointers, structs and buffers pass through 
 
 ## Build From Source
 
-Lorethunk builds against an installed Lorelei (which provides `LoreTLC`, the runtimes, and the `ThunkInterface` headers) and uses `qmsetup` for configuration. Build and install both of those first; see the Lorelei README for its own build steps.
+LoreThunk builds against an installed Lorelei (which provides `LoreTLC`, the runtimes, and the `ThunkInterface` headers) and uses `qmsetup` for configuration. Build and install both of those first; see the Lorelei README for its own build steps.
 
 Only `zlib` is needed for the default build.
 

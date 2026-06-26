@@ -2,6 +2,7 @@
 # in THUNK_DISABLE_LIBRARIES is skipped.
 set(_thunks
     zlib
+    SDL2
 )
 
 foreach(_thunk IN LISTS _thunks)
