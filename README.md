@@ -4,7 +4,7 @@ LoreThunk is a collection of thunk libraries for [Lorelei](https://github.com/ro
 
 ## How it works
 
-Lorelei runs the guest under a patched QEMU with `guest_base == 0`, so a guest pointer and a host pointer are the same number. The guest reaches the host through a single magic syscall that a QEMU TCG plugin intercepts and forwards to the host runtime. See the [Lorelei](https://github.com/rover2024/lorelei) README for the full mechanism.
+Lorelei runs the guest under a patched QEMU with `guest_base == 0`, so a guest pointer and a host pointer are the same number. The guest reaches the host through a single magic syscall that a QEMU TCG plugin intercepts and forwards to the host runtime.
 
 A thunk library is the per-library glue that rides on top of that mechanism. For each library this repository ships a small manifest, and the Thunk Library Compiler (TLC, provided by Lorelei) reads the library's headers and emits the marshalling code:
 
@@ -13,20 +13,18 @@ A thunk library is the per-library glue that rides on top of that mechanism. For
 
 Because the address space is shared, pointers, structs and buffers pass through untouched, with no per-call serialization.
 
-## Project layout
-
-- `src/thunks/<lib>`: one directory per thunk library. Each holds the manifests (`Manifest_guest.cpp`, `Manifest_host.cpp`), an optional `Desc.h` of per-proc pass descriptors, the symbol lists (`Symbols*.conf`) and a `CMakeLists.txt` that calls `add_thunk()`.
-- `src/thunks/AddThunk.cmake`: the `add_thunk()` macro that wires a library's manifest through TLC `stat`/`generate` into the GTL and HTL targets.
-- `cmake/LoreThunkBuildApi.cmake`: the lower-level build helpers (arch detection, TLC invocation, install rpath, `thunk_add_library`, ...).
-- `src/libs/Midware`: host-side support libraries (X11, xcb) that some thunks depend on.
-- `include/lorethunk`: public headers for the support libraries above.
-- `share/lorelei`: shared data installed alongside the libraries (the thunk database, ...).
-
 ## Build From Source
 
 LoreThunk builds against an installed Lorelei (which provides `LoreTLC`, the runtimes, and the `ThunkInterface` headers) and uses `qmsetup` for configuration. Build and install both of those first; see the Lorelei README for its own build steps.
 
-Each thunk is two libraries that target **different** ISAs: the guest thunk (GTL) is built for the guest ISA (x86_64), and the host thunk (HTL) is built for the host ISA (the machine that runs the emulator). Each library is compiled by the toolchain for its own ISA, so in the general cross-ISA case you configure and build twice, once per toolchain. `THUNK_BUILD_GUEST_TARGETS` selects the GTL and `THUNK_BUILD_HOST_TARGETS` selects the HTL; the active compiler must match whichever one is enabled.
+Each thunk is two libraries that target **different** ISAs: the guest thunk (GTL) is built for the guest ISA (x86_64), and the host thunk (HTL) is built for the host ISA (the machine that runs the emulator).
+
+Each library is compiled by the toolchain for its own ISA, so in the general cross-ISA case you configure and build twice, once per toolchain.
+
+- `THUNK_BUILD_GUEST_TARGETS` selects the GTL
+- `THUNK_BUILD_HOST_TARGETS` selects the HTL
+
+The active compiler must match whichever one is enabled.
 
 ### Build on X86_64
 
@@ -51,11 +49,11 @@ cmake --build build --target install
 
 ### Build on ARM64/RISC-V64
 
-The host ISA differs from the guest x86_64, so the two halves need two different compilers and two separate builds. Build the **host** half first: it runs the TLC stat step and installs the `ThunkStat.json` result alongside the HTL. Then build the **guest** half with an x86_64 compiler, pointing `THUNK_DATA_DIR` at the installed stat so it is reused instead of re-running stat.
+The host ISA differs from the guest x86_64, so the two halves need two different compilers and two separate builds. Build the **host** half first: it runs the TLC stat step and installs `ThunkStat.json` under `share/lorelei/thunks`. Then build the **guest** half with an x86_64 compiler, pointing `THUNK_DATA_DIR` at the installed stat so it is reused instead of re-running stat.
 
 ```bash
 # 1. Host thunks (HTL), built with the native host toolchain. Produces and installs
-#    the stat results (share/lorelei/thunks) together with the host libraries.
+#    ThunkStat.json and the generated host source under share/lorelei/thunks.
 cmake -B build-host -G Ninja \
     -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_INSTALL_PREFIX=$INSTALL_DIR \
@@ -82,9 +80,16 @@ cmake --build build-guest --target install
 
 The host ISA is detected from the compiler; the guest ISA is fixed to x86_64. The GTL and HTL install into separate `<arch>-LoreGTL` / `<arch>-LoreHTL` library directories, so the two builds do not collide.
 
+Each build also installs the thunk source it generated (`Thunk_host.cpp` from the host build, `Thunk_guest.cpp` from the guest build) next to `ThunkStat.json`. Pointing `THUNK_GEN_SOURCE_DIR` at that directory on a later build skips both `stat` and `generate` and compiles the installed sources directly, so a fully generated package can be rebuilt without running TLC.
+
 ## Adding a thunk
 
-`src/thunks/zlib` is the smallest worked example. To add a library `<lib>`:
+Two existing thunks are worth reading as examples:
+
+- `src/thunks/zlib`: the smallest worked example.
+- `src/thunks/ThunkExample`: a broader one that exercises every feature.
+
+The short version is below; for the full guide (proc descriptors, the proc phases, and how to override them) see [docs/HowToAddAThunk.md](docs/HowToAddAThunk.md). To add a library `<lib>`:
 
 1. Create the directory `src/thunks/<lib>/`.
 2. Write `Desc.h`: include the library's headers and `<lorelei/ThunkInterface/Proc.h>` / `<lorelei/ThunkInterface/PassTags.h>`, then declare any per-proc pass descriptors (`ProcFnDesc` / `ProcCbDesc`, for example to route a variadic function through the printf pass).
