@@ -13,11 +13,15 @@
 
 namespace lore::thunk {
 
-    // SDL_LogMessageV takes a printf-style format + va_list, so the builder marshals its variadic
-    // arguments via the printf pass.
+    // SDL_LogMessage and the other variadic SDL_Log* helpers carry a printf format attribute
+    // (SDL_PRINTF_VARARG_FUNC), so the builder recognises them automatically with no descriptor.
+    //
+    // SDL_LogMessageV is the va_list form. A va_list function carries no format attribute and its
+    // name does not end in "printf", so it cannot be detected automatically and must be tagged by
+    // hand with the vprintf builder.
     template <>
     struct ProcFnDesc<::SDL_LogMessageV> {
-        _DESC pass::printf<> builder_pass = {};
+        _DESC pass::vprintf<> builder_pass = {};
     };
 
 }
