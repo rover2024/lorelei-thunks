@@ -2,10 +2,7 @@
 
 This guide explains how a thunk library is written: the files involved, how a library's surface is declared, the proc model that TLC generates, and how to hand-write or override individual pieces.
 
-Two thunks in this repository are worth reading alongside it:
-
-- `src/thunks/zlib`: the smallest real example.
-- `src/thunks/ThunkExample`: a deliberately broad one that exercises every feature this guide describes (printf/scanf descriptors and format-attribute detection, callbacks, `Entry`/`Adapt`/`Caller` overrides, and a `long double` type filter). Its header `include/lorethunk/ThunkExample/ThunkExample.h` lists what each function demonstrates.
+`src/thunks/zlib` is the smallest real example worth reading alongside it.
 
 ## What A Thunk Is
 

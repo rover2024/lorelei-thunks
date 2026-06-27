@@ -3,7 +3,6 @@
 set(_thunks
     zlib
     SDL2
-    ThunkExample
 )
 
 foreach(_thunk IN LISTS _thunks)

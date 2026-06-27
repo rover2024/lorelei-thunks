@@ -24,3 +24,7 @@ endif()
 add_subdirectory(libs)
 
 add_subdirectory(thunks)
+
+if(LORE_BUILD_TESTS)
+    add_subdirectory(tests)
+endif()

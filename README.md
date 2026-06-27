@@ -84,12 +84,7 @@ Each build also installs the thunk source it generated (`Thunk_host.cpp` from th
 
 ## Adding a thunk
 
-Two existing thunks are worth reading as examples:
-
-- `src/thunks/zlib`: the smallest worked example.
-- `src/thunks/ThunkExample`: a broader one that exercises every feature.
-
-The short version is below; for the full guide (proc descriptors, the proc phases, and how to override them) see [docs/HowToAddAThunk.md](docs/HowToAddAThunk.md). To add a library `<lib>`:
+`src/thunks/zlib` is the smallest worked example. The short version is below; for the full guide (proc descriptors, the proc phases, and how to override them) see [docs/HowToAddAThunk.md](docs/HowToAddAThunk.md). To add a library `<lib>`:
 
 1. Create the directory `src/thunks/<lib>/`.
 2. Write `Desc.h`: include the library's headers and `<lorelei/ThunkInterface/Proc.h>` / `<lorelei/ThunkInterface/PassTags.h>`, then declare any per-proc pass descriptors (`ProcFnDesc` / `ProcCbDesc`, for example to route a variadic function through the printf pass).
