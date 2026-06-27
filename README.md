@@ -26,12 +26,14 @@ Because the address space is shared, pointers, structs and buffers pass through 
 
 LoreThunk builds against an installed Lorelei (which provides `LoreTLC`, the runtimes, and the `ThunkInterface` headers) and uses `qmsetup` for configuration. Build and install both of those first; see the Lorelei README for its own build steps.
 
-Only `zlib` is needed for the default build.
+Each thunk is two libraries that target **different** ISAs: the guest thunk (GTL) is built for the guest ISA (x86_64), and the host thunk (HTL) is built for the host ISA (the machine that runs the emulator). Each library is compiled by the toolchain for its own ISA, so in the general cross-ISA case you configure and build twice, once per toolchain. `THUNK_BUILD_GUEST_TARGETS` selects the GTL and `THUNK_BUILD_HOST_TARGETS` selects the HTL; the active compiler must match whichever one is enabled.
+
+### Build on X86_64
+
+The guest and host ISA are the same, so a single x86_64 compiler builds both halves in one configure:
 
 ```bash
 export INSTALL_DIR=/home/user/install
-
-sudo apt install zlib1g-dev
 
 git clone https://github.com/rover2024/lorelei-thunks.git
 cd lorelei-thunks
@@ -41,26 +43,57 @@ cmake -B build -G Ninja \
     -DCMAKE_INSTALL_PREFIX=$INSTALL_DIR \
     -Dqmsetup_DIR=$INSTALL_DIR/qmsetup/lib/cmake/qmsetup \
     -Dlorelei_DIR=$INSTALL_DIR/lib/cmake/lorelei \
-    -DTHUNK_BUILD_HOST_TARGETS=TRUE \   # Disable if building for guest ISA
-    -DTHUNK_BUILD_GUEST_TARGETS=TRUE    # Disable if building for host ISA
+    -DTHUNK_BUILD_HOST_TARGETS=TRUE \
+    -DTHUNK_BUILD_GUEST_TARGETS=TRUE
 cmake --build build --target all
 cmake --build build --target install
 ```
 
-## Build Options
+### Build on ARM64/RISC-V64
 
-- `THUNK_BUILD_HOST_TARGETS` (default `ON`): build the host thunk libraries (HTL).
-- `THUNK_BUILD_GUEST_TARGETS` (default `OFF`): build the guest thunk libraries (GTL); enable when building for the guest ISA.
-- `THUNK_INSTALL` (default `ON`): install the libraries, headers and shared data.
-- `THUNK_DISABLE_LIBRARIES` (default empty): semicolon-separated list of thunk library names to skip, for example `-DTHUNK_DISABLE_LIBRARIES="zlib;SDL2"`.
-- `THUNK_DATA_DIR`: directory holding each thunk's TLC stat result. When set to a pre-generated directory, the stat step is skipped and its results are taken as-is (and not reinstalled); otherwise stat runs into the build tree and its results are installed for reuse. The thunk sources are always regenerated.
+The host ISA differs from the guest x86_64, so the two halves need two different compilers and two separate builds. Build the **host** half first: it runs the TLC stat step and installs the `ThunkStat.json` result alongside the HTL. Then build the **guest** half with an x86_64 compiler, pointing `THUNK_DATA_DIR` at the installed stat so it is reused instead of re-running stat.
+
+```bash
+# 1. Host thunks (HTL), built with the native host toolchain. Produces and installs
+#    the stat results (share/lorelei/thunks) together with the host libraries.
+cmake -B build-host -G Ninja \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_INSTALL_PREFIX=$INSTALL_DIR \
+    -Dqmsetup_DIR=$INSTALL_DIR/qmsetup/lib/cmake/qmsetup \
+    -Dlorelei_DIR=$INSTALL_DIR/lib/cmake/lorelei \
+    -DTHUNK_BUILD_HOST_TARGETS=TRUE \
+    -DTHUNK_BUILD_GUEST_TARGETS=FALSE
+cmake --build build-host --target install
+
+# 2. Guest thunks (GTL), built with an x86_64 toolchain. Reuse the stat installed
+#    in step 1 via THUNK_DATA_DIR, so the stat step is skipped here.
+cmake -B build-guest -G Ninja \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_INSTALL_PREFIX=$INSTALL_DIR \
+    -DCMAKE_C_COMPILER=x86_64-linux-gnu-gcc \
+    -DCMAKE_CXX_COMPILER=x86_64-linux-gnu-g++ \
+    -Dqmsetup_DIR=$INSTALL_DIR/qmsetup/lib/cmake/qmsetup \
+    -Dlorelei_DIR=$INSTALL_DIR/lib/cmake/lorelei \
+    -DTHUNK_DATA_DIR=$INSTALL_DIR/share/lorelei/thunks \
+    -DTHUNK_BUILD_HOST_TARGETS=FALSE \
+    -DTHUNK_BUILD_GUEST_TARGETS=TRUE
+cmake --build build-guest --target install
+```
+
+The host ISA is detected from the compiler; the guest ISA is fixed to x86_64. The GTL and HTL install into separate `<arch>-LoreGTL` / `<arch>-LoreHTL` library directories, so the two builds do not collide.
 
 ## Adding a thunk
 
-Create `src/thunks/<lib>/` with a `Manifest_guest.cpp` and `Manifest_host.cpp` (including `<lorelei/ThunkInterface/ManifestGuest.cpp.inc>` and `ManifestHost.cpp.inc` respectively), the symbol list, and a `CMakeLists.txt` that sets the convention variables and calls `add_thunk()`. Then add the directory name to the `_thunks` list in `src/thunks/CMakeLists.txt`. See `src/thunks/zlib` for a worked example.
+`src/thunks/zlib` is the smallest worked example. To add a library `<lib>`:
+
+1. Create the directory `src/thunks/<lib>/`.
+2. Write `Desc.h`: include the library's headers and `<lorelei/ThunkInterface/Proc.h>` / `<lorelei/ThunkInterface/PassTags.h>`, then declare any per-proc pass descriptors (`ProcFnDesc` / `ProcCbDesc`, for example to route a variadic function through the printf pass).
+3. Write the symbol list `Symbols.conf`: the functions and callbacks to thunk. It usually just does `include "Symbols_autogen.conf"` and adds a `[Guest Function]` section for any guest symbols the host needs to call back into.
+4. Write `Manifest_guest.cpp` and `Manifest_host.cpp`: each includes `Desc.h` and then `<lorelei/ThunkInterface/ManifestGuest.cpp.inc>` or `ManifestHost.cpp.inc`. Put any hand-written `ProcFn` / `ProcCb` overrides here.
+5. Write `CMakeLists.txt`: `project(<libname>)`, `include("../AddThunk.cmake")`, set the convention variables (`GTL_alias`, `*_extra_links`, `*_extra_includes`, ...), then call `add_thunk()`. See the header of `src/thunks/AddThunk.cmake` for the full list.
+6. Add `<lib>` to the `_thunks` list in `src/thunks/CMakeLists.txt`.
 
 ## Dependencies
 
 - lorelei (https://github.com/rover2024/lorelei)
 - qmsetup (https://github.com/stdware/qmsetup)
-- zlib (https://github.com/madler/zlib)
