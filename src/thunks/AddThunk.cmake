@@ -10,17 +10,40 @@
 #   <name>_HTL   host thunk  (when THUNK_BUILD_HOST_TARGETS is ON)
 #   <name>_GTL   guest thunk (when THUNK_BUILD_GUEST_TARGETS is ON)
 #
-# Optional convention variables (all empty by default). ALL_* apply everywhere; STAT_*/GTL_*/
-# HTL_* are scoped to the stat / guest-generate / host-generate steps respectively:
-#   ALL_extra_args     / STAT_extra_args     / GTL_extra_args     / HTL_extra_args
-#       extra compiler args passed to the TLC stat / generate invocations (after `--`)
-#   ALL_extra_includes / STAT_extra_includes / GTL_extra_includes / HTL_extra_includes
-#       extra include dirs; passed to TLC and (for ALL/GTL/HTL) added to the built target
-#   GTL_extra_links    / HTL_extra_links       extra link libraries
-#   GTL_extra_options  / HTL_extra_options     extra compile options
-#   GTL_force_links    / HTL_force_links       libraries force-linked (-Wl,--no-as-needed)
-#   GTL_alias          / HTL_alias             soname symlink(s), e.g. libz.so.1
-#   PLUGIN_target                              a Clang pass-plugin target to load into generate
+# Optional convention variables (all empty by default). The ALL_* variants apply everywhere;
+# the STAT_* / GTL_* / HTL_* variants are scoped to the stat / guest-generate / host-generate
+# steps respectively.
+#
+# Extra compiler args passed to the TLC stat / generate invocations (after `--`):
+#   ALL_extra_args
+#   STAT_extra_args
+#   GTL_extra_args
+#   HTL_extra_args
+#
+# Extra include dirs; passed to TLC and (for the ALL/GTL/HTL ones) added to the built target:
+#   ALL_extra_includes
+#   STAT_extra_includes
+#   GTL_extra_includes
+#   HTL_extra_includes
+#
+# Extra link libraries:
+#   GTL_extra_links
+#   HTL_extra_links
+#
+# Extra compile options:
+#   GTL_extra_options
+#   HTL_extra_options
+#
+# Libraries force-linked (-Wl,--no-as-needed):
+#   GTL_force_links
+#   HTL_force_links
+#
+# Soname symlink(s), e.g. libz.so.1:
+#   GTL_alias
+#   HTL_alias
+#
+# A Clang pass-plugin target to load into generate:
+#   PLUGIN_target
 #
 # Note: a host manifest that defines LORE_THUNK_AUTO_LINK folds the real library's symbol
 # addresses (&adler32, ...) straight into the host thunk instead of resolving them via dlsym
@@ -74,9 +97,9 @@ macro(add_thunk)
     endif()
 
     # --- stat -------------------------------------------------------------
-    # Skip stat when the caller pointed THUNK_DATA_DIR at a pre-generated ThunkStat.json;
-    # otherwise produce it (generate consumes it below).
-    if(NOT THUNK_DATA_DIR_USER_DEFINED)
+    # stat only feeds generate, so skip it when the caller supplied a pre-generated ThunkStat.json
+    # or pre-generated sources (generate is skipped too); otherwise produce it.
+    if(NOT THUNK_DATA_DIR_USER_DEFINED AND NOT THUNK_GEN_SOURCE_DIR_USER_DEFINED)
         thunk_tlc_stat(${PROJECT_NAME} ${_desc_file} ${_symbols_config} ${_stat_file}
             EXTRA_INCLUDES ${ALL_extra_includes} ${STAT_extra_includes}
             EXTRA_ARGS ${ALL_extra_args} ${STAT_extra_args} ${THUNK_TLC_EXTRA_ARGS}
@@ -85,11 +108,15 @@ macro(add_thunk)
 
     # --- host thunk -------------------------------------------------------
     if(THUNK_BUILD_HOST_TARGETS)
-        thunk_tlc_generate(${HTL} ${_manifest_host_file} ${HTL_src} ${_stat_file} host
-            ${_plugin_opts}
-            EXTRA_INCLUDES ${ALL_extra_includes} ${HTL_extra_includes}
-            EXTRA_ARGS ${ALL_extra_args} ${HTL_extra_args} ${THUNK_TLC_EXTRA_ARGS}
-        )
+        # Skip generate when the caller pointed THUNK_GEN_SOURCE_DIR at pre-generated sources;
+        # otherwise produce Thunk_host.cpp from the manifest.
+        if(NOT THUNK_GEN_SOURCE_DIR_USER_DEFINED)
+            thunk_tlc_generate(${HTL} ${_manifest_host_file} ${HTL_src} ${_stat_file} host
+                ${_plugin_opts}
+                EXTRA_INCLUDES ${ALL_extra_includes} ${HTL_extra_includes}
+                EXTRA_ARGS ${ALL_extra_args} ${HTL_extra_args} ${THUNK_TLC_EXTRA_ARGS}
+            )
+        endif()
 
         # The host thunk keeps its _HTL suffix (lib<name>_HTL.so); only the guest thunk takes
         # the bare library name so it can stand in for the real guest library.
@@ -129,11 +156,15 @@ macro(add_thunk)
 
     # --- guest thunk ------------------------------------------------------
     if(THUNK_BUILD_GUEST_TARGETS)
-        thunk_tlc_generate(${GTL} ${_manifest_guest_file} ${GTL_src} ${_stat_file} guest
-            ${_plugin_opts}
-            EXTRA_INCLUDES ${ALL_extra_includes} ${GTL_extra_includes}
-            EXTRA_ARGS ${ALL_extra_args} ${GTL_extra_args} ${THUNK_TLC_EXTRA_ARGS}
-        )
+        # Skip generate when the caller pointed THUNK_GEN_SOURCE_DIR at pre-generated sources;
+        # otherwise produce Thunk_guest.cpp from the manifest.
+        if(NOT THUNK_GEN_SOURCE_DIR_USER_DEFINED)
+            thunk_tlc_generate(${GTL} ${_manifest_guest_file} ${GTL_src} ${_stat_file} guest
+                ${_plugin_opts}
+                EXTRA_INCLUDES ${ALL_extra_includes} ${GTL_extra_includes}
+                EXTRA_ARGS ${ALL_extra_args} ${GTL_extra_args} ${THUNK_TLC_EXTRA_ARGS}
+            )
+        endif()
 
         add_library(${GTL} SHARED ${GTL_src})
         thunk_default_install_rpath(_gtl_rpath ${THUNK_GUEST_ARCH}-LoreGTL)

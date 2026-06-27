@@ -12,6 +12,7 @@ project(lorethunk
 # ----------------------------------
 option(THUNK_BUILD_HOST_TARGETS "Build host thunk targets" ON)
 option(THUNK_BUILD_GUEST_TARGETS "Build guest thunk targets" OFF)
+option(THUNK_BUILD_TESTS "Build test targets" OFF)
 option(THUNK_INSTALL "Install thunk libraries" ON)
 
 # Semicolon-separated list of thunk library names to skip, matched against each thunk's
@@ -66,7 +67,7 @@ endif()
 # Directory holding each thunk's TLC stat result (ThunkStat.json). When the caller points
 # this at a pre-generated directory, stat is skipped (the files are taken as-is) and not
 # installed; otherwise stat runs into the build tree and the results are installed so they
-# can be reused later. The thunk sources are always regenerated, so they are never installed.
+# can be reused later.
 if(NOT DEFINED THUNK_DATA_DIR)
     set(THUNK_DATA_DIR_USER_DEFINED FALSE)
     set(THUNK_DATA_DIR ${QMSETUP_BUILD_DIR}/share/lorelei/thunks)
@@ -74,10 +75,15 @@ else()
     set(THUNK_DATA_DIR_USER_DEFINED TRUE)
 endif()
 
-# Directory the generated thunk sources (Thunk_{guest,host}.cpp) are emitted into. They are
-# regenerated every build and never installed.
+# Directory the generated thunk sources (Thunk_{guest,host}.cpp) are emitted into. Like the
+# stat result, when the caller points this at a pre-generated directory the generate step is
+# skipped (the sources are compiled as-is) and not installed; otherwise generate runs into the
+# build tree and the sources are installed so a later build can reuse them without rerunning TLC.
 if(NOT DEFINED THUNK_GEN_SOURCE_DIR)
+    set(THUNK_GEN_SOURCE_DIR_USER_DEFINED FALSE)
     set(THUNK_GEN_SOURCE_DIR ${QMSETUP_BUILD_DIR}/src/thunks)
+else()
+    set(THUNK_GEN_SOURCE_DIR_USER_DEFINED TRUE)
 endif()
 
 include("cmake/LoreThunkBuildApi.cmake")
@@ -91,6 +97,16 @@ add_subdirectory(src)
 if(THUNK_INSTALL AND NOT THUNK_DATA_DIR_USER_DEFINED)
     install(DIRECTORY ${THUNK_DATA_DIR}/
         DESTINATION ${THUNK_INSTALL_SHARE_DIR}/lorelei/thunks
+    )
+endif()
+
+# Install the generated thunk sources (alongside the stat results) unless the caller supplied
+# their own. Only the sources produced by this build's enabled side are present, so a host-only
+# and a guest-only build each contribute their half.
+if(THUNK_INSTALL AND NOT THUNK_GEN_SOURCE_DIR_USER_DEFINED)
+    install(DIRECTORY ${THUNK_GEN_SOURCE_DIR}/
+        DESTINATION ${THUNK_INSTALL_SHARE_DIR}/lorelei/thunks
+        FILES_MATCHING PATTERN "Thunk_*.cpp"
     )
 endif()
 
