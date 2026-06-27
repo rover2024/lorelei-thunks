@@ -4,7 +4,7 @@ This guide explains how a thunk library is written: the files involved, how a li
 
 `src/thunks/zlib` is the smallest real example worth reading alongside it.
 
-## What A Thunk Is
+## What a Thunk Is
 
 A thunk for a library `<lib>` is compiled into two shared libraries:
 

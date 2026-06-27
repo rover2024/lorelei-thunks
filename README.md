@@ -84,6 +84,51 @@ The host ISA is detected from the compiler; the guest ISA is fixed to x86_64. Th
 
 Generation does not depend on which side is built, so the host build emits both sources; pointing `THUNK_GEN_SOURCE_DIR` at the installed directory skips both `stat` and `generate` and compiles the sources directly, which is exactly what the guest step above does and how a fully generated package can be rebuilt without running TLC.
 
+## Running a Thunk Under QEMU
+
+The thunks run on the patched QEMU (`guest_base == 0`, a shared address space) with its `dlcall` plugin. Build it once:
+
+```bash
+git clone https://github.com/rover2024/qemu.git
+cd qemu
+git checkout minimal-passthrough-plugin
+mkdir -p build/release && cd build/release
+../../configure --target-list=x86_64-linux-user --enable-plugins --python=python3
+ninja
+```
+
+This produces `qemu-x86_64` and `contrib/plugins/libdlcall.so`.
+
+With lorelei and the thunks installed as above, any x86_64 program runs over a thunk by putting the guest thunk first on the guest library path. The examples below run the distribution's `minizip` over the installed zlib thunk, so its `deflate` / `compress` calls run on the host's native libz while minizip itself stays emulated. The only difference between hosts is where the guest half was installed.
+
+On an x86_64 host the guest and host halves share `$INSTALL_DIR`, and the native `minizip` is already x86_64:
+
+```bash
+export QEMU=/path/to/qemu/build/release/qemu-x86_64
+export PLUGIN=/path/to/qemu/build/release/contrib/plugins/libdlcall.so
+
+LORELEI_ROOT=$INSTALL_DIR LORELEI_GUEST_ROOT=$INSTALL_DIR \
+LD_LIBRARY_PATH=$INSTALL_DIR/lib \
+    $QEMU -plugin $PLUGIN \
+    -E LD_LIBRARY_PATH=$INSTALL_DIR/lib/x86_64-LoreGTL:$INSTALL_DIR/lib \
+    "$(command -v minizip)" -8 -o /tmp/archive.zip /path/to/some/file
+```
+
+On a cross (ARM64/RISC-V64) host the guest half is under `$INSTALL_DIR/x86_64`, and the program must be an x86_64 minizip (the native one cannot run under `qemu-x86_64`):
+
+```bash
+export QEMU=/path/to/qemu/build/release/qemu-x86_64
+export PLUGIN=/path/to/qemu/build/release/contrib/plugins/libdlcall.so
+
+LORELEI_ROOT=$INSTALL_DIR LORELEI_GUEST_ROOT=$INSTALL_DIR/x86_64 \
+LD_LIBRARY_PATH=$INSTALL_DIR/lib \
+    $QEMU -plugin $PLUGIN \
+    -E LD_LIBRARY_PATH=$INSTALL_DIR/x86_64/lib/x86_64-LoreGTL:$INSTALL_DIR/x86_64/lib \
+    /path/to/minizip.x86_64 -8 -o /tmp/archive.zip /path/to/some/file
+```
+
+In both cases `LORELEI_ROOT` makes the host runtime read the installed `share/lorelei/ThunkDB.json` (which lists the thunk) and find the HTL under `lib/<host-arch>-LoreHTL`, while `LORELEI_GUEST_ROOT` locates the GTL under `lib/x86_64-LoreGTL`. The QEMU process loads the host runtime from `LD_LIBRARY_PATH`; the guest program loads the GTL and the guest runtime from the path passed through with `-E`.
+
 ## Adding a thunk
 
 `src/thunks/zlib` is the smallest worked example. The short version is below; for the full guide (proc descriptors, the proc phases, and how to override them) see [docs/HowToAddAThunk.md](docs/HowToAddAThunk.md). To add a library `<lib>`:
