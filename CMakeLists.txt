@@ -101,8 +101,9 @@ if(THUNK_INSTALL AND NOT THUNK_DATA_DIR_USER_DEFINED)
 endif()
 
 # Install the generated thunk sources (alongside the stat results) unless the caller supplied
-# their own. Only the sources produced by this build's enabled side are present, so a host-only
-# and a guest-only build each contribute their half.
+# their own. Generation is independent of the enabled side, so both Thunk_host.cpp and
+# Thunk_guest.cpp are produced and installed here (a host-only cross build still emits the guest
+# source for a following guest build to compile from THUNK_GEN_SOURCE_DIR).
 if(THUNK_INSTALL AND NOT THUNK_GEN_SOURCE_DIR_USER_DEFINED)
     install(DIRECTORY ${THUNK_GEN_SOURCE_DIR}/
         DESTINATION ${THUNK_INSTALL_SHARE_DIR}/lorelei/thunks

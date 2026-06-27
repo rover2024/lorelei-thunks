@@ -106,18 +106,30 @@ macro(add_thunk)
         )
     endif()
 
+    # --- generate ---------------------------------------------------------
+    # Generation is independent of which library this build compiles. Both the host and guest sources
+    # are produced here (unless the caller supplied pre-generated ones); THUNK_BUILD_*_TARGETS only
+    # selects which library is then built. So a host-only (cross) build still emits the guest source
+    # too: the native host TLC cross-targets x86_64 for it, and a following guest build compiles it
+    # straight from THUNK_GEN_SOURCE_DIR without a runnable TLC of its own.
+    if(NOT THUNK_GEN_SOURCE_DIR_USER_DEFINED)
+        thunk_tlc_generate(${HTL} ${_manifest_host_file} ${HTL_src} ${_stat_file} host
+            ${_plugin_opts}
+            EXTRA_INCLUDES ${ALL_extra_includes} ${HTL_extra_includes}
+            EXTRA_ARGS ${ALL_extra_args} ${HTL_extra_args} ${THUNK_TLC_EXTRA_ARGS}
+        )
+        thunk_tlc_generate(${GTL} ${_manifest_guest_file} ${GTL_src} ${_stat_file} guest
+            ${_plugin_opts}
+            EXTRA_INCLUDES ${ALL_extra_includes} ${GTL_extra_includes}
+            EXTRA_ARGS ${ALL_extra_args} ${GTL_extra_args} ${THUNK_TLC_EXTRA_ARGS}
+        )
+        # A library whose side is disabled does not consume its source, so force both to be produced
+        # (and thus installed) with an always-built target.
+        add_custom_target(${PROJECT_NAME}_gen ALL DEPENDS ${HTL_src} ${GTL_src})
+    endif()
+
     # --- host thunk -------------------------------------------------------
     if(THUNK_BUILD_HOST_TARGETS)
-        # Skip generate when the caller pointed THUNK_GEN_SOURCE_DIR at pre-generated sources;
-        # otherwise produce Thunk_host.cpp from the manifest.
-        if(NOT THUNK_GEN_SOURCE_DIR_USER_DEFINED)
-            thunk_tlc_generate(${HTL} ${_manifest_host_file} ${HTL_src} ${_stat_file} host
-                ${_plugin_opts}
-                EXTRA_INCLUDES ${ALL_extra_includes} ${HTL_extra_includes}
-                EXTRA_ARGS ${ALL_extra_args} ${HTL_extra_args} ${THUNK_TLC_EXTRA_ARGS}
-            )
-        endif()
-
         # The host thunk keeps its _HTL suffix (lib<name>_HTL.so); only the guest thunk takes
         # the bare library name so it can stand in for the real guest library.
         add_library(${HTL} SHARED ${HTL_src})
@@ -156,16 +168,6 @@ macro(add_thunk)
 
     # --- guest thunk ------------------------------------------------------
     if(THUNK_BUILD_GUEST_TARGETS)
-        # Skip generate when the caller pointed THUNK_GEN_SOURCE_DIR at pre-generated sources;
-        # otherwise produce Thunk_guest.cpp from the manifest.
-        if(NOT THUNK_GEN_SOURCE_DIR_USER_DEFINED)
-            thunk_tlc_generate(${GTL} ${_manifest_guest_file} ${GTL_src} ${_stat_file} guest
-                ${_plugin_opts}
-                EXTRA_INCLUDES ${ALL_extra_includes} ${GTL_extra_includes}
-                EXTRA_ARGS ${ALL_extra_args} ${GTL_extra_args} ${THUNK_TLC_EXTRA_ARGS}
-            )
-        endif()
-
         add_library(${GTL} SHARED ${GTL_src})
         thunk_default_install_rpath(_gtl_rpath ${THUNK_GUEST_ARCH}-LoreGTL)
         set_target_properties(${GTL} PROPERTIES

@@ -41,12 +41,17 @@ if(NOT THUNK_HOST_ARCH)
     endif()
 endif()
 
-# The thunk compiler executable and the lorelei install include directory (carries
-# ThunkInterface/, DLCall/, ...) both come from the imported `lorelei` package. They are
-# resolved once and reused by the TLC stat/generate commands, which invoke the compiler
-# directly instead of going through a CMake target.
-get_target_property(THUNK_TLC_EXECUTABLE lorelei::LoreTLC LOCATION)
-get_target_property(LORE_INSTALL_INCLUDE_DIR lorelei::LoreHostRT INTERFACE_INCLUDE_DIRECTORIES)
+# The lorelei install include directory (carries ThunkInterface/, DLCall/, ...) comes from the
+# imported `lorelei` package and is reused by every compile. Take it from LoreSupport: it is the base
+# library every side depends on, so it is present whichever lorelei install (host or x86_64) is used.
+get_target_property(LORE_INSTALL_INCLUDE_DIR lorelei::LoreSupport INTERFACE_INCLUDE_DIRECTORIES)
+
+# The TLC executable is only needed when this build generates sources. A guest build pointed at
+# pre-generated sources (THUNK_GEN_SOURCE_DIR) finds them via the x86_64 lorelei package, which ships
+# no runnable TLC, so only resolve the compiler when we are actually going to run it.
+if(NOT THUNK_GEN_SOURCE_DIR_USER_DEFINED)
+    get_target_property(THUNK_TLC_EXECUTABLE lorelei::LoreTLC LOCATION)
+endif()
 
 # ----------------------------------
 # TLC custom commands

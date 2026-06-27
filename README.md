@@ -49,11 +49,12 @@ cmake --build build --target install
 
 ### Build on ARM64/RISC-V64
 
-The host ISA differs from the guest x86_64, so the two halves need two different compilers and two separate builds. Build the **host** half first: it runs the TLC stat step and installs `ThunkStat.json` under `share/lorelei/thunks`. Then build the **guest** half with an x86_64 compiler, pointing `THUNK_DATA_DIR` at the installed stat so it is reused instead of re-running stat.
+The host ISA differs from the guest x86_64, so the two halves need two different compilers and two separate builds. Build the **host** half first: it runs the native TLC, which both stats and generates, and installs `ThunkStat.json` together with *both* thunk sources (`Thunk_host.cpp` and `Thunk_guest.cpp`) under `share/lorelei/thunks`. Then build the **guest** half with an x86_64 compiler, pointing `THUNK_GEN_SOURCE_DIR` at those installed sources: it skips TLC entirely and just compiles `Thunk_guest.cpp`, linking the x86_64 `LoreGuestRT`. Because the guest build runs no TLC, its `lorelei_DIR` points at the x86_64 lorelei install (which carries the x86_64 runtime), not the host one.
 
 ```bash
-# 1. Host thunks (HTL), built with the native host toolchain. Produces and installs
-#    ThunkStat.json and the generated host source under share/lorelei/thunks.
+# 1. Host thunks (HTL), built with the native host toolchain. Runs the TLC and installs
+#    ThunkStat.json and both generated sources (Thunk_host.cpp + Thunk_guest.cpp) under
+#    share/lorelei/thunks.
 cmake -B build-host -G Ninja \
     -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_INSTALL_PREFIX=$INSTALL_DIR \
@@ -63,16 +64,17 @@ cmake -B build-host -G Ninja \
     -DTHUNK_BUILD_GUEST_TARGETS=FALSE
 cmake --build build-host --target install
 
-# 2. Guest thunks (GTL), built with an x86_64 toolchain. Reuse the stat installed
-#    in step 1 via THUNK_DATA_DIR, so the stat step is skipped here.
+# 2. Guest thunks (GTL), built with an x86_64 toolchain. Reuse the sources generated in
+#    step 1 via THUNK_GEN_SOURCE_DIR, so no TLC runs here; lorelei_DIR is the x86_64 install,
+#    whose LoreGuestRT the GTL links against.
 cmake -B build-guest -G Ninja \
     -DCMAKE_BUILD_TYPE=Release \
-    -DCMAKE_INSTALL_PREFIX=$INSTALL_DIR \
+    -DCMAKE_INSTALL_PREFIX=$INSTALL_DIR/x86_64 \
     -DCMAKE_C_COMPILER=x86_64-linux-gnu-gcc \
     -DCMAKE_CXX_COMPILER=x86_64-linux-gnu-g++ \
     -Dqmsetup_DIR=$INSTALL_DIR/qmsetup/lib/cmake/qmsetup \
-    -Dlorelei_DIR=$INSTALL_DIR/lib/cmake/lorelei \
-    -DTHUNK_DATA_DIR=$INSTALL_DIR/share/lorelei/thunks \
+    -Dlorelei_DIR=$INSTALL_DIR/x86_64/lib/cmake/lorelei \
+    -DTHUNK_GEN_SOURCE_DIR=$INSTALL_DIR/share/lorelei/thunks \
     -DTHUNK_BUILD_HOST_TARGETS=FALSE \
     -DTHUNK_BUILD_GUEST_TARGETS=TRUE
 cmake --build build-guest --target install
@@ -80,7 +82,7 @@ cmake --build build-guest --target install
 
 The host ISA is detected from the compiler; the guest ISA is fixed to x86_64. The GTL and HTL install into separate `<arch>-LoreGTL` / `<arch>-LoreHTL` library directories, so the two builds do not collide.
 
-Each build also installs the thunk source it generated (`Thunk_host.cpp` from the host build, `Thunk_guest.cpp` from the guest build) next to `ThunkStat.json`. Pointing `THUNK_GEN_SOURCE_DIR` at that directory on a later build skips both `stat` and `generate` and compiles the installed sources directly, so a fully generated package can be rebuilt without running TLC.
+Generation does not depend on which side is built, so the host build emits both sources; pointing `THUNK_GEN_SOURCE_DIR` at the installed directory skips both `stat` and `generate` and compiles the sources directly, which is exactly what the guest step above does and how a fully generated package can be rebuilt without running TLC.
 
 ## Adding a thunk
 
