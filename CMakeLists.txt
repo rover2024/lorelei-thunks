@@ -93,8 +93,10 @@ include("cmake/LoreThunkBuildApi.cmake")
 # ----------------------------------
 add_subdirectory(src)
 
-# Install the generated stat results unless the caller supplied their own data directory.
-if(THUNK_INSTALL AND NOT THUNK_DATA_DIR_USER_DEFINED)
+# Install the generated stat results, but only when this build actually ran stat (it is skipped when
+# the caller supplied their own data directory or pre-generated sources, matching the stat command's
+# own guard; otherwise THUNK_DATA_DIR does not exist and the install would fail).
+if(THUNK_INSTALL AND NOT THUNK_DATA_DIR_USER_DEFINED AND NOT THUNK_GEN_SOURCE_DIR_USER_DEFINED)
     install(DIRECTORY ${THUNK_DATA_DIR}/
         DESTINATION ${THUNK_INSTALL_SHARE_DIR}/lorelei/thunks
     )
