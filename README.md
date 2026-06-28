@@ -15,7 +15,9 @@ Because the address space is shared, pointers, structs and buffers pass through 
 
 ## Build From Source
 
-LoreThunk builds against an installed Lorelei (which provides `LoreTLC`, the runtimes, and the `ThunkInterface` headers) and uses `qmsetup` for configuration. Build and install both of those first; see the Lorelei README for its own build steps.
+LoreThunk builds against an installed Lorelei (which provides `LoreTLC`, the runtimes, and the `ThunkInterface` headers) and uses `qmsetup` for configuration.
+
+Build and install both of those first. See the [Lorelei README](https://github.com/rover2024/lorelei#build-from-source) for its own build steps.
 
 Each thunk is two libraries that target **different** ISAs: the guest thunk (GTL) is built for the guest ISA (x86_64), and the host thunk (HTL) is built for the host ISA (the machine that runs the emulator).
 
@@ -99,7 +101,7 @@ ninja
 
 This produces `qemu-x86_64` and `contrib/plugins/libdlcall.so`.
 
-With lorelei and the thunks installed as above, any x86_64 program runs over a thunk by putting the guest thunk first on the guest library path. The examples below run the distribution's `minizip` over the installed zlib thunk, so its `deflate` / `compress` calls run on the host's native libz while minizip itself stays emulated. The only difference between hosts is where the guest half was installed.
+With Lorelei and the thunks installed as above, any x86_64 program runs over a thunk by putting the guest thunk first on the guest library path. The examples below run the distribution's `minizip` over the installed zlib thunk, so its `deflate` / `compress` calls run on the host's native libz while minizip itself stays emulated. The only difference between hosts is where the guest half was installed.
 
 On an x86_64 host the guest and host halves share `$INSTALL_DIR`, and the native `minizip` is already x86_64:
 
