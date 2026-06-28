@@ -17,7 +17,7 @@ Because the address space is shared, pointers, structs and buffers pass through 
 
 LoreThunk builds against an installed Lorelei (which provides `LoreTLC`, the runtimes, and the `ThunkInterface` headers) and uses `qmsetup` for configuration.
 
-Build and install both of those first. See the [Lorelei README](https://github.com/rover2024/lorelei#build-from-source) for its own build steps.
+Build and install both of those first. See the [Lorelei README](https://github.com/rover2024/lorelei#build-from-source) for its own build steps. The steps below assume you install LoreThunk into the same `INSTALL_DIR` as Lorelei.
 
 Each thunk is two libraries that target **different** ISAs: the guest thunk (GTL) is built for the guest ISA (x86_64), and the host thunk (HTL) is built for the host ISA (the machine that runs the emulator).
 
@@ -33,6 +33,7 @@ The active compiler must match whichever one is enabled.
 The guest and host ISA are the same, so a single x86_64 compiler builds both halves in one configure:
 
 ```bash
+# the same prefix you installed Lorelei into
 export INSTALL_DIR=/home/user/install
 
 git clone https://github.com/rover2024/lorelei-thunks.git
