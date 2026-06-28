@@ -8,7 +8,7 @@ Lorelei runs the guest under a patched QEMU with `guest_base == 0`, so a guest p
 
 A thunk library is the per-library glue that rides on top of that mechanism. For each library this repository ships a small manifest, and the Thunk Library Compiler (TLC, provided by Lorelei) reads the library's headers and emits the marshalling code:
 
-- a **guest thunk library** (GTL), built for the guest ISA, that the guest links against in place of the real library; it issues the syscall on every call.
+- a **guest thunk library** (GTL), built for the guest ISA, that the guest links against in place of the real library, and issues the syscall on every call.
 - a **host thunk library** (HTL), built for the host ISA, that the host runtime loads to `dlopen`/`dlsym` the real library and invoke it with the guest's arguments.
 
 Because the address space is shared, pointers, structs and buffers pass through untouched, with no per-call serialization.
@@ -67,7 +67,7 @@ cmake -B build-host -G Ninja \
 cmake --build build-host --target install
 
 # 2. Guest thunks (GTL), built with an x86_64 toolchain. Reuse the sources generated in
-#    step 1 via THUNK_GEN_SOURCE_DIR, so no TLC runs here; lorelei_DIR is the x86_64 install,
+#    step 1 via THUNK_GEN_SOURCE_DIR, so no TLC runs here, and lorelei_DIR is the x86_64 install,
 #    whose LoreGuestRT the GTL links against.
 cmake -B build-guest -G Ninja \
     -DCMAKE_BUILD_TYPE=Release \
@@ -82,9 +82,9 @@ cmake -B build-guest -G Ninja \
 cmake --build build-guest --target install
 ```
 
-The host ISA is detected from the compiler; the guest ISA is fixed to x86_64. The GTL and HTL install into separate `<arch>-LoreGTL` / `<arch>-LoreHTL` library directories, so the two builds do not collide.
+The host ISA is detected from the compiler, while the guest ISA is fixed to x86_64. The GTL and HTL install into separate `<arch>-LoreGTL` / `<arch>-LoreHTL` library directories, so the two builds do not collide.
 
-Generation does not depend on which side is built, so the host build emits both sources; pointing `THUNK_GEN_SOURCE_DIR` at the installed directory skips both `stat` and `generate` and compiles the sources directly, which is exactly what the guest step above does and how a fully generated package can be rebuilt without running TLC.
+Generation does not depend on which side is built, so the host build emits both sources. Pointing `THUNK_GEN_SOURCE_DIR` at the installed directory skips both `stat` and `generate` and compiles the sources directly, which is exactly what the guest step above does and how a fully generated package can be rebuilt without running TLC.
 
 ## Running a Thunk Under QEMU
 
@@ -129,11 +129,11 @@ LD_LIBRARY_PATH=$INSTALL_DIR/lib \
     /path/to/minizip.x86_64 -8 -o /tmp/archive.zip /path/to/some/file
 ```
 
-In both cases `LORELEI_ROOT` makes the host runtime read the installed `share/lorelei/ThunkDB.json` (which lists the thunk) and find the HTL under `lib/<host-arch>-LoreHTL`, while `LORELEI_GUEST_ROOT` locates the GTL under `lib/x86_64-LoreGTL`. The QEMU process loads the host runtime from `LD_LIBRARY_PATH`; the guest program loads the GTL and the guest runtime from the path passed through with `-E`.
+In both cases `LORELEI_ROOT` makes the host runtime read the installed `share/lorelei/ThunkDB.json` (which lists the thunk) and find the HTL under `lib/<host-arch>-LoreHTL`, while `LORELEI_GUEST_ROOT` locates the GTL under `lib/x86_64-LoreGTL`. The QEMU process loads the host runtime from `LD_LIBRARY_PATH`, while the guest program loads the GTL and the guest runtime from the path passed through with `-E`.
 
 ## Adding a Thunk
 
-`src/thunks/zlib` is the smallest worked example. The short version is below; for the full guide (proc descriptors, the proc phases, and how to override them) see [docs/HowToAddAThunk.md](docs/HowToAddAThunk.md). To add a library `<lib>`:
+`src/thunks/zlib` is the smallest worked example. The short version is below. For the full guide (proc descriptors, the proc phases, and how to override them) see [docs/HowToAddAThunk.md](docs/HowToAddAThunk.md). To add a library `<lib>`:
 
 1. Create the directory `src/thunks/<lib>/`.
 2. Write `Desc.h`: include the library's headers and `<lorelei/ThunkInterface/Proc.h>` / `<lorelei/ThunkInterface/PassTags.h>`, then declare any per-proc pass descriptors (`ProcFnDesc` / `ProcCbDesc`, for example to route a variadic function through the printf pass).

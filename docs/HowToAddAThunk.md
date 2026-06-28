@@ -8,7 +8,7 @@ This guide explains how a thunk library is written: the files involved, how a li
 
 A thunk for a library `<lib>` is compiled into two shared libraries:
 
-- the **guest thunk library** (GTL), which the guest links in place of the real `<lib>`; it exports the same symbols and forwards every call across the boundary.
+- the **guest thunk library** (GTL), which the guest links in place of the real `<lib>`. It exports the same symbols and forwards every call across the boundary.
 - the **host thunk library** (HTL), which the host runtime loads to run the real `<lib>` on the guest's behalf.
 
 You do not write the per-call marshalling. TLC reads the library's real headers and generates both sides. Your job is to declare which symbols to thunk, give TLC the headers, and hand-write only the few cases the generator cannot handle on its own.
@@ -20,9 +20,9 @@ A thunk lives in `src/thunks/<lib>/` and has five files (see `src/thunks/zlib` f
 | File | Purpose |
 |------|---------|
 | `Symbols.conf` | which functions and callbacks to thunk |
-| `Desc.h` | includes the library headers; declares per-proc pass descriptors |
-| `Manifest_guest.cpp` | guest-side entry point; guest overrides |
-| `Manifest_host.cpp` | host-side entry point; host overrides |
+| `Desc.h` | includes the library headers and declares per-proc pass descriptors |
+| `Manifest_guest.cpp` | guest-side entry point and overrides |
+| `Manifest_host.cpp` | host-side entry point and overrides |
 | `CMakeLists.txt` | calls `add_thunk()` with the link/alias settings |
 
 Then add `<lib>` to the `_thunks` list in `src/thunks/CMakeLists.txt`.
@@ -100,7 +100,7 @@ struct ProcFnDesc<::SDL_LogMessageV> {
 
 The available pass tags (`pass::printf` / `pass::vprintf` / `pass::scanf` / `pass::vscanf` for variadic functions, `pass::GetProcAddress` for `*GetProcAddress*`-style functions) are documented in `<lorelei/ThunkInterface/PassTags.h>`.
 
-Most procs need no descriptor at all; the default Builder handles them.
+Most procs need no descriptor at all. The default Builder handles them.
 
 ## 3. The proc model: directions and phases
 
@@ -117,10 +117,10 @@ template <class F, ProcDirection Direction, ProcPhase Phase> struct ProcCb;  // 
 
 | Phase | Role | `invoke` signature |
 |-------|------|--------------------|
-| `Entry` | The wire boundary. On the receiver side it unpacks the raw `args[]` buffer into typed arguments; on the sender side it is the real C function the caller links against. | receiver: `(void **args, void *ret, void *metadata)`; sender: the real C signature |
+| `Entry` | The wire boundary. On the receiver side it unpacks the raw `args[]` buffer into typed arguments. On the sender side it is the real C function the caller links against. | receiver: `(void **args, void *ret, void *metadata)`<br>sender: the real C signature |
 | `Adapt` | Typed adaptation. The non-Builder passes (callback substitution, type/handle filters, GetProcAddress) inject here. A plain pass-through to `Caller` by default. | the typed argument signature |
 | `Caller` | Constructs the actual call (default forwarding, or the printf/scanf wrapper). | the typed argument signature |
-| `Exec` | The real library call, or the cross-boundary invoke into the other side. Fixed boilerplate; you do not override it. | the typed argument signature |
+| `Exec` | The real library call, or the cross-boundary invoke into the other side. Fixed boilerplate that you do not override. | the typed argument signature |
 
 Each layer's `invoke` calls the next, so overriding one layer leaves the others intact. This is the point of the split: you can replace the adaptation of one proc without rewriting its marshalling.
 
@@ -158,14 +158,14 @@ namespace lore::thunk {
 
 The two feature macros:
 
-- **`LORE_THUNK_CALLBACK_REPLACE`**: turn on callback substitution. With it, function pointers the guest passes are wrapped in trampolines so the host can call them back across the boundary. Enable it for any library with callbacks (zlib's `zalloc`/`zfree`, SDL's event filters). A few callbacks sit in positions the automatic substituter cannot rewrite; those need a hand-written `Adapt` (see below).
+- **`LORE_THUNK_CALLBACK_REPLACE`**: turn on callback substitution. With it, function pointers the guest passes are wrapped in trampolines so the host can call them back across the boundary. Enable it for any library with callbacks (zlib's `zalloc`/`zfree`, SDL's event filters). A few callbacks sit in positions the automatic substituter cannot rewrite. Those need a hand-written `Adapt` (see below).
 - **`LORE_THUNK_AUTO_LINK`** (host manifest only): fold the real library's symbol addresses straight into the HTL at link time instead of resolving them with `dlopen`/`dlsym` at run time. The HTL must then link the real library itself (set `HTL_EXTRA_LINKS` in the CMakeLists).
 
 ## 5. Overriding a phase
 
-To override a layer, declare the matching specialization in the manifest. Providing `ProcFn<F, Direction, Phase>` (or `ProcCb<...>`) makes the generator skip its default code for exactly that proc, direction and phase; everything else is still generated. The `invoke` signature must be call-compatible with the generated one; you may use the library's own typedefs.
+To override a layer, declare the matching specialization in the manifest. Providing `ProcFn<F, Direction, Phase>` (or `ProcCb<...>`) makes the generator skip its default code for exactly that proc, direction and phase. Everything else is still generated. The `invoke` signature must be call-compatible with the generated one. You may use the library's own typedefs.
 
-Which manifest a override goes in depends on the receiver side: for a `GuestToHost` function the receiver is the host, so it goes in `Manifest_host.cpp`. A callback is generated in both, so its substitution lands on the guest for the `HostToGuest` direction and the host for the `GuestToHost` direction.
+Which manifest an override goes in depends on the receiver side: for a `GuestToHost` function the receiver is the host, so it goes in `Manifest_host.cpp`. A callback is generated in both, so its substitution lands on the guest for the `HostToGuest` direction and the host for the `GuestToHost` direction.
 
 ### Override `Entry`: run locally on the guest
 
