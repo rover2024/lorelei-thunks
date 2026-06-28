@@ -2,56 +2,50 @@
 #
 #   project(<libname>)                  # e.g. project(z) -> libz
 #   include("../AddThunk.cmake")
-#   set(GTL_alias libz.so.1)            # optional, guest-side soname symlink
-#   set(ALL_extra_includes ...)         # optional, extra include dirs for TLC + targets
+#   set(GTL_ALIAS libz.so.1)            # optional, guest-side soname symlink
+#   set(ALL_EXTRA_INCLUDES ...)         # optional, extra include dirs for TLC + targets
 #   add_thunk()
 #
 # It produces:
 #   <name>_HTL   host thunk  (when THUNK_BUILD_HOST_TARGETS is ON)
 #   <name>_GTL   guest thunk (when THUNK_BUILD_GUEST_TARGETS is ON)
 #
-# Optional convention variables (all empty by default). The ALL_* variants apply everywhere;
-# the STAT_* / GTL_* / HTL_* variants are scoped to the stat / guest-generate / host-generate
-# steps respectively.
+# Optional convention variables (all empty by default), set in the thunk's CMakeLists.txt. The ALL_*
+# variants apply everywhere; the STAT_* / GTL_* / HTL_* variants are scoped to the stat /
+# guest-generate / host-generate steps respectively. Each one has a global THUNK_<NAME> counterpart
+# (settable from outside with -D, not reset per thunk) that is merged in ahead of the per-thunk value;
+# the global STAT_/GTL_ args are how a cross host points the x86_64 TLC parse at its own toolchain.
 #
 # Extra compiler args passed to the TLC stat / generate invocations (after `--`):
-#   ALL_extra_args
-#   STAT_extra_args
-#   GTL_extra_args
-#   HTL_extra_args
+#   ALL_EXTRA_ARGS    / THUNK_ALL_EXTRA_ARGS
+#   STAT_EXTRA_ARGS   / THUNK_STAT_EXTRA_ARGS
+#   GTL_EXTRA_ARGS    / THUNK_GTL_EXTRA_ARGS
+#   HTL_EXTRA_ARGS    / THUNK_HTL_EXTRA_ARGS
 #
 # Extra include dirs; passed to TLC and (for the ALL/GTL/HTL ones) added to the built target:
-#   ALL_extra_includes
-#   STAT_extra_includes
-#   GTL_extra_includes
-#   HTL_extra_includes
+#   ALL_EXTRA_INCLUDES  / THUNK_ALL_EXTRA_INCLUDES
+#   STAT_EXTRA_INCLUDES / THUNK_STAT_EXTRA_INCLUDES
+#   GTL_EXTRA_INCLUDES  / THUNK_GTL_EXTRA_INCLUDES
+#   HTL_EXTRA_INCLUDES  / THUNK_HTL_EXTRA_INCLUDES
 #
 # Extra link libraries:
-#   GTL_extra_links
-#   HTL_extra_links
+#   GTL_EXTRA_LINKS / THUNK_GTL_EXTRA_LINKS
+#   HTL_EXTRA_LINKS / THUNK_HTL_EXTRA_LINKS
 #
 # Extra compile options:
-#   GTL_extra_options
-#   HTL_extra_options
+#   GTL_EXTRA_OPTIONS / THUNK_GTL_EXTRA_OPTIONS
+#   HTL_EXTRA_OPTIONS / THUNK_HTL_EXTRA_OPTIONS
 #
 # Libraries force-linked (-Wl,--no-as-needed):
-#   GTL_force_links
-#   HTL_force_links
+#   GTL_FORCE_LINKS / THUNK_GTL_FORCE_LINKS
+#   HTL_FORCE_LINKS / THUNK_HTL_FORCE_LINKS
 #
-# Soname symlink(s), e.g. libz.so.1:
-#   GTL_alias
-#   HTL_alias
+# Soname symlink(s), e.g. libz.so.1 (per-thunk only):
+#   GTL_ALIAS
+#   HTL_ALIAS
 #
-# A Clang pass-plugin target to load into generate:
-#   PLUGIN_target
-#
-# Note: a host manifest that defines LORE_THUNK_AUTO_LINK folds the real library's symbol
-# addresses (&adler32, ...) straight into the host thunk instead of resolving them via dlsym
-# at runtime. Such a manifest must link the real library itself; set HTL_extra_links to it
-# (e.g. ZLIB::ZLIB), otherwise the symbols stay undefined and the library is missing from
-# DT_NEEDED.
-#
-# Global (not reset here): THUNK_TLC_EXTRA_ARGS applies to every TLC invocation.
+# A Clang pass-plugin target to load into generate (per-thunk only):
+#   PLUGIN_TARGET
 
 set(GTL ${PROJECT_NAME}_GTL)
 set(HTL ${PROJECT_NAME}_HTL)
@@ -71,38 +65,47 @@ set(_stat_file ${_thunk_data_dir}/ThunkStat.json)
 set(GTL_src ${_thunk_gen_dir}/Thunk_guest.cpp)
 set(HTL_src ${_thunk_gen_dir}/Thunk_host.cpp)
 
-# Convention variables (reset per thunk; add_subdirectory gives each its own scope).
-set(ALL_extra_args)
-set(STAT_extra_args)
-set(GTL_extra_args)
-set(HTL_extra_args)
-set(ALL_extra_includes)
-set(STAT_extra_includes)
-set(GTL_extra_includes)
-set(HTL_extra_includes)
-set(GTL_extra_links)
-set(HTL_extra_links)
-set(GTL_extra_options)
-set(HTL_extra_options)
-set(GTL_force_links)
-set(HTL_force_links)
-set(GTL_alias)
-set(HTL_alias)
-set(PLUGIN_target)
+# Per-thunk convention variables (reset per thunk; add_subdirectory gives each its own scope). The
+# THUNK_* globals are intentionally not reset, so an outer -D persists across every thunk.
+set(ALL_EXTRA_ARGS)
+set(STAT_EXTRA_ARGS)
+set(GTL_EXTRA_ARGS)
+set(HTL_EXTRA_ARGS)
+set(ALL_EXTRA_INCLUDES)
+set(STAT_EXTRA_INCLUDES)
+set(GTL_EXTRA_INCLUDES)
+set(HTL_EXTRA_INCLUDES)
+set(GTL_EXTRA_LINKS)
+set(HTL_EXTRA_LINKS)
+set(GTL_EXTRA_OPTIONS)
+set(HTL_EXTRA_OPTIONS)
+set(GTL_FORCE_LINKS)
+set(HTL_FORCE_LINKS)
+set(GTL_ALIAS)
+set(HTL_ALIAS)
+set(PLUGIN_TARGET)
 
 macro(add_thunk)
     set(_plugin_opts)
-    if(PLUGIN_target)
-        set(_plugin_opts PLUGINS $<TARGET_FILE:${PLUGIN_target}>)
+    if(PLUGIN_TARGET)
+        set(_plugin_opts PLUGINS $<TARGET_FILE:${PLUGIN_TARGET}>)
     endif()
+
+    # Effective args/includes per step: global THUNK_* first, then the per-thunk value.
+    set(_stat_args ${THUNK_ALL_EXTRA_ARGS} ${ALL_EXTRA_ARGS} ${THUNK_STAT_EXTRA_ARGS} ${STAT_EXTRA_ARGS})
+    set(_htl_args  ${THUNK_ALL_EXTRA_ARGS} ${ALL_EXTRA_ARGS} ${THUNK_HTL_EXTRA_ARGS} ${HTL_EXTRA_ARGS})
+    set(_gtl_args  ${THUNK_ALL_EXTRA_ARGS} ${ALL_EXTRA_ARGS} ${THUNK_GTL_EXTRA_ARGS} ${GTL_EXTRA_ARGS})
+    set(_stat_incs ${THUNK_ALL_EXTRA_INCLUDES} ${ALL_EXTRA_INCLUDES} ${THUNK_STAT_EXTRA_INCLUDES} ${STAT_EXTRA_INCLUDES})
+    set(_htl_incs  ${THUNK_ALL_EXTRA_INCLUDES} ${ALL_EXTRA_INCLUDES} ${THUNK_HTL_EXTRA_INCLUDES} ${HTL_EXTRA_INCLUDES})
+    set(_gtl_incs  ${THUNK_ALL_EXTRA_INCLUDES} ${ALL_EXTRA_INCLUDES} ${THUNK_GTL_EXTRA_INCLUDES} ${GTL_EXTRA_INCLUDES})
 
     # --- stat -------------------------------------------------------------
     # stat only feeds generate, so skip it when the caller supplied a pre-generated ThunkStat.json
     # or pre-generated sources (generate is skipped too); otherwise produce it.
     if(NOT THUNK_DATA_DIR_USER_DEFINED AND NOT THUNK_GEN_SOURCE_DIR_USER_DEFINED)
         thunk_tlc_stat(${PROJECT_NAME} ${_desc_file} ${_symbols_config} ${_stat_file}
-            EXTRA_INCLUDES ${ALL_extra_includes} ${STAT_extra_includes}
-            EXTRA_ARGS ${ALL_extra_args} ${STAT_extra_args} ${THUNK_TLC_EXTRA_ARGS}
+            EXTRA_INCLUDES ${_stat_incs}
+            EXTRA_ARGS ${_stat_args}
         )
     endif()
 
@@ -115,13 +118,13 @@ macro(add_thunk)
     if(NOT THUNK_GEN_SOURCE_DIR_USER_DEFINED)
         thunk_tlc_generate(${HTL} ${_manifest_host_file} ${HTL_src} ${_stat_file} host
             ${_plugin_opts}
-            EXTRA_INCLUDES ${ALL_extra_includes} ${HTL_extra_includes}
-            EXTRA_ARGS ${ALL_extra_args} ${HTL_extra_args} ${THUNK_TLC_EXTRA_ARGS}
+            EXTRA_INCLUDES ${_htl_incs}
+            EXTRA_ARGS ${_htl_args}
         )
         thunk_tlc_generate(${GTL} ${_manifest_guest_file} ${GTL_src} ${_stat_file} guest
             ${_plugin_opts}
-            EXTRA_INCLUDES ${ALL_extra_includes} ${GTL_extra_includes}
-            EXTRA_ARGS ${ALL_extra_args} ${GTL_extra_args} ${THUNK_TLC_EXTRA_ARGS}
+            EXTRA_INCLUDES ${_gtl_incs}
+            EXTRA_ARGS ${_gtl_args}
         )
         # A library whose side is disabled does not consume its source, so force both to be produced
         # (and thus installed) with an always-built target.
@@ -141,18 +144,21 @@ macro(add_thunk)
         thunk_configure_target(${HTL} ${THUNK_HOST_FIXED_REGISTER})
         target_link_libraries(${HTL} PRIVATE lorelei::LoreHostRT)
 
-        if(ALL_extra_includes OR HTL_extra_includes)
-            target_include_directories(${HTL} PRIVATE ${ALL_extra_includes} ${HTL_extra_includes})
+        if(_htl_incs)
+            target_include_directories(${HTL} PRIVATE ${_htl_incs})
         endif()
-        if(HTL_extra_links)
-            target_link_libraries(${HTL} PRIVATE ${HTL_extra_links})
+        set(_htl_links ${THUNK_HTL_EXTRA_LINKS} ${HTL_EXTRA_LINKS})
+        if(_htl_links)
+            target_link_libraries(${HTL} PRIVATE ${_htl_links})
         endif()
-        if(HTL_extra_options)
-            target_compile_options(${HTL} PRIVATE ${HTL_extra_options})
+        set(_htl_opts ${THUNK_HTL_EXTRA_OPTIONS} ${HTL_EXTRA_OPTIONS})
+        if(_htl_opts)
+            target_compile_options(${HTL} PRIVATE ${_htl_opts})
         endif()
-        if(HTL_force_links)
+        set(_htl_force ${THUNK_HTL_FORCE_LINKS} ${HTL_FORCE_LINKS})
+        if(_htl_force)
             target_link_options(${HTL} PRIVATE -Wl,--no-as-needed)
-            target_link_libraries(${HTL} PRIVATE ${HTL_force_links})
+            target_link_libraries(${HTL} PRIVATE ${_htl_force})
         endif()
 
         if(THUNK_INSTALL)
@@ -161,8 +167,8 @@ macro(add_thunk)
             )
         endif()
 
-        if(HTL_alias)
-            thunk_make_alias(${HTL} ${CMAKE_INSTALL_LIBDIR}/${THUNK_HOST_ARCH}-LoreHTL ${HTL_alias})
+        if(HTL_ALIAS)
+            thunk_make_alias(${HTL} ${CMAKE_INSTALL_LIBDIR}/${THUNK_HOST_ARCH}-LoreHTL ${HTL_ALIAS})
         endif()
     endif()
 
@@ -178,18 +184,21 @@ macro(add_thunk)
         thunk_configure_target(${GTL} ${THUNK_GUEST_FIXED_REGISTER})
         target_link_libraries(${GTL} PRIVATE lorelei::LoreGuestRT)
 
-        if(ALL_extra_includes OR GTL_extra_includes)
-            target_include_directories(${GTL} PRIVATE ${ALL_extra_includes} ${GTL_extra_includes})
+        if(_gtl_incs)
+            target_include_directories(${GTL} PRIVATE ${_gtl_incs})
         endif()
-        if(GTL_extra_links)
-            target_link_libraries(${GTL} PRIVATE ${GTL_extra_links})
+        set(_gtl_links ${THUNK_GTL_EXTRA_LINKS} ${GTL_EXTRA_LINKS})
+        if(_gtl_links)
+            target_link_libraries(${GTL} PRIVATE ${_gtl_links})
         endif()
-        if(GTL_extra_options)
-            target_compile_options(${GTL} PRIVATE ${GTL_extra_options})
+        set(_gtl_opts ${THUNK_GTL_EXTRA_OPTIONS} ${GTL_EXTRA_OPTIONS})
+        if(_gtl_opts)
+            target_compile_options(${GTL} PRIVATE ${_gtl_opts})
         endif()
-        if(GTL_force_links)
+        set(_gtl_force ${THUNK_GTL_FORCE_LINKS} ${GTL_FORCE_LINKS})
+        if(_gtl_force)
             target_link_options(${GTL} PRIVATE -Wl,--no-as-needed)
-            target_link_libraries(${GTL} PRIVATE ${GTL_force_links})
+            target_link_libraries(${GTL} PRIVATE ${_gtl_force})
         endif()
 
         if(THUNK_INSTALL)
@@ -198,8 +207,8 @@ macro(add_thunk)
             )
         endif()
 
-        if(GTL_alias)
-            thunk_make_alias(${GTL} ${CMAKE_INSTALL_LIBDIR}/${THUNK_GUEST_ARCH}-LoreGTL ${GTL_alias})
+        if(GTL_ALIAS)
+            thunk_make_alias(${GTL} ${CMAKE_INSTALL_LIBDIR}/${THUNK_GUEST_ARCH}-LoreGTL ${GTL_ALIAS})
         endif()
     endif()
 endmacro()

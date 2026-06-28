@@ -159,7 +159,7 @@ namespace lore::thunk {
 The two feature macros:
 
 - **`LORE_THUNK_CALLBACK_REPLACE`**: turn on callback substitution. With it, function pointers the guest passes are wrapped in trampolines so the host can call them back across the boundary. Enable it for any library with callbacks (zlib's `zalloc`/`zfree`, SDL's event filters). A few callbacks sit in positions the automatic substituter cannot rewrite; those need a hand-written `Adapt` (see below).
-- **`LORE_THUNK_AUTO_LINK`** (host manifest only): fold the real library's symbol addresses straight into the HTL at link time instead of resolving them with `dlopen`/`dlsym` at run time. The HTL must then link the real library itself (set `HTL_extra_links` in the CMakeLists).
+- **`LORE_THUNK_AUTO_LINK`** (host manifest only): fold the real library's symbol addresses straight into the HTL at link time instead of resolving them with `dlopen`/`dlsym` at run time. The HTL must then link the real library itself (set `HTL_EXTRA_LINKS` in the CMakeLists).
 
 ## 5. Overriding a phase
 
@@ -250,15 +250,15 @@ project(z)
 
 include("../AddThunk.cmake")
 
-set(GTL_alias libz.so.1)
+set(GTL_ALIAS libz.so.1)
 
 # Manifest_host.cpp uses LORE_THUNK_AUTO_LINK, so the HTL links the real zlib.
-set(HTL_extra_links z)
+set(HTL_EXTRA_LINKS z)
 
 add_thunk()
 ```
 
-The common variables are `GTL_alias` / `HTL_alias` (soname symlinks so the GTL can stand in for the real library), `GTL_extra_links` / `HTL_extra_links`, `GTL_force_links` / `HTL_force_links`, and `ALL_extra_includes` / `*_extra_includes`. The full list is documented in the header of `src/thunks/AddThunk.cmake`.
+The common variables are `GTL_ALIAS` / `HTL_ALIAS` (soname symlinks so the GTL can stand in for the real library), `GTL_EXTRA_LINKS` / `HTL_EXTRA_LINKS`, `GTL_FORCE_LINKS` / `HTL_FORCE_LINKS`, and `ALL_EXTRA_INCLUDES` / `*_EXTRA_INCLUDES`. The full list is documented in the header of `src/thunks/AddThunk.cmake`.
 
 ## Checklist
 
