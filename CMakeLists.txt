@@ -15,9 +15,13 @@ option(THUNK_BUILD_GUEST_TARGETS "Build guest thunk targets" OFF)
 option(THUNK_BUILD_TESTS "Build test targets" OFF)
 option(THUNK_INSTALL "Install thunk libraries" ON)
 
-# Semicolon-separated list of thunk library names to skip, matched against each thunk's
-# subdirectory name (e.g. -DTHUNK_DISABLE_LIBRARIES="zlib;SDL2").
-set(THUNK_DISABLE_LIBRARIES "" CACHE STRING "Thunk libraries to skip building")
+# Which thunk libraries to build, by subdirectory name. THUNK_ENABLE_LIBRARIES is an allowlist: when
+# non-empty, only the libraries it names are built. THUNK_DISABLE_LIBRARIES is a denylist applied when
+# no allowlist is given: every library is built except those it names. Both are semicolon-separated
+# (e.g. -DTHUNK_ENABLE_LIBRARIES="zlib;lzma", -DTHUNK_DISABLE_LIBRARIES="SDL2"). The allowlist is for
+# hosts where some thunk cannot build (e.g. SDL2's multiarch headers on a cross arch).
+set(THUNK_ENABLE_LIBRARIES "" CACHE STRING "Thunk libraries to build exclusively (allowlist; empty = all)")
+set(THUNK_DISABLE_LIBRARIES "" CACHE STRING "Thunk libraries to skip building (denylist; ignored if the allowlist is set)")
 
 # ----------------------------------
 # CMake Settings
