@@ -73,9 +73,11 @@ function(thunk_tlc_stat _name _desc _config _out)
     get_filename_component(_dir ${_out} DIRECTORY)
     file(MAKE_DIRECTORY ${_dir})
 
+    # Parse as C++20, matching how the generated TU is compiled: a Desc.h / manifest may pull in
+    # lorelei runtime headers that use C++20 (e.g. std::span), which an older default would reject.
     add_custom_command(OUTPUT ${_out}
         COMMAND ${THUNK_TLC_EXECUTABLE} stat -o ${_out} -c ${_config} ${_desc}
-        -- -xc++ ${_includes} ${FUNC_EXTRA_ARGS}
+        -- -xc++ -std=gnu++20 ${_includes} ${FUNC_EXTRA_ARGS}
         DEPENDS ${_desc} ${_config} ${THUNK_TLC_EXECUTABLE}
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         COMMENT "TLC stat ${_name}"
@@ -113,9 +115,11 @@ function(thunk_tlc_generate _name _manifest _out _stat _mode)
     get_filename_component(_dir ${_out} DIRECTORY)
     file(MAKE_DIRECTORY ${_dir})
 
+    # Parse as C++20, matching how the generated TU is compiled: the manifest may pull in lorelei
+    # runtime headers that use C++20 (e.g. GuestClient.h -> std::span), which an older default rejects.
     add_custom_command(OUTPUT ${_out}
         COMMAND ${THUNK_TLC_EXECUTABLE} generate -o ${_out} -s ${_stat} -m ${_mode} ${_manifest}
-        -- -xc++ ${_plugin_opts} ${_target_opt} ${_includes} ${FUNC_EXTRA_ARGS}
+        -- -xc++ -std=gnu++20 ${_plugin_opts} ${_target_opt} ${_includes} ${FUNC_EXTRA_ARGS}
         DEPENDS ${_manifest} ${_stat} ${THUNK_TLC_EXECUTABLE} ${FUNC_PLUGINS}
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         COMMENT "TLC generate ${_mode} ${_name}"
