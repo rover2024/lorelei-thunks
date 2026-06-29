@@ -13,14 +13,15 @@ project(lorethunk
 option(THUNK_BUILD_HOST_TARGETS "Build host thunk targets" ON)
 option(THUNK_BUILD_GUEST_TARGETS "Build guest thunk targets" OFF)
 option(THUNK_BUILD_TESTS "Build test targets" OFF)
+option(THUNK_BUILD_EXPERIMENTAL_LIBRARIES "Build the experimental, work-in-progress thunks" OFF)
 option(THUNK_INSTALL "Install thunk libraries" ON)
 
-# Which thunk libraries to build, by subdirectory name. THUNK_ENABLE_LIBRARIES is an allowlist: when
-# non-empty, only the libraries it names are built. THUNK_DISABLE_LIBRARIES is a denylist applied when
-# no allowlist is given: every library is built except those it names. Both are semicolon-separated
-# (e.g. -DTHUNK_ENABLE_LIBRARIES="zlib;lzma", -DTHUNK_DISABLE_LIBRARIES="SDL2"). The allowlist is for
-# hosts where some thunk cannot build (e.g. SDL2's multiarch headers on a cross arch).
-set(THUNK_ENABLE_LIBRARIES "" CACHE STRING "Thunk libraries to build exclusively (allowlist; empty = all)")
+# Which thunk libraries to build, by subdirectory name. THUNK_ENABLE_LIBRARIES is an explicit
+# allowlist: when non-empty, exactly those libraries are built (stable or not, overriding everything
+# below). Otherwise the stable thunks are built, plus the experimental ones if THUNK_BUILD_EXPERIMENTAL_LIBRARIES
+# is ON, minus anything in the THUNK_DISABLE_LIBRARIES denylist. All are semicolon-separated subdir
+# names (e.g. -DTHUNK_ENABLE_LIBRARIES="zlib;lzma", -DTHUNK_DISABLE_LIBRARIES="SDL2").
+set(THUNK_ENABLE_LIBRARIES "" CACHE STRING "Thunk libraries to build exclusively (allowlist; empty = the default selection)")
 set(THUNK_DISABLE_LIBRARIES "" CACHE STRING "Thunk libraries to skip building (denylist; ignored if the allowlist is set)")
 
 # ----------------------------------

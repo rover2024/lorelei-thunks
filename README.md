@@ -28,6 +28,8 @@ Each library is compiled by the toolchain for its own ISA, so in the general cro
 
 The active compiler must match whichever one is enabled.
 
+By default only the stable thunks (zlib and lzma) are built, so a fresh checkout configures without needing every wrapped library's dev headers. The other thunks are still work in progress; add `-DTHUNK_BUILD_EXPERIMENTAL_LIBRARIES=ON` to build them too, or build an exact set with `-DTHUNK_ENABLE_LIBRARIES="zlib;openssl"`.
+
 ### Build on X86_64
 
 The guest and host ISA are the same, so a single x86_64 compiler builds both halves in one configure:
