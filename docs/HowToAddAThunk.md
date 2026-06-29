@@ -25,7 +25,7 @@ A thunk lives in `src/thunks/<lib>/` and has five files (see `src/thunks/zlib` f
 | `Manifest_host.cpp` | host-side entry point and overrides |
 | `CMakeLists.txt` | calls `add_thunk()` with the link/alias settings |
 
-Then add `<lib>` to the `_thunks` list in `src/thunks/CMakeLists.txt`.
+Then add `<lib>` to the `_thunks_stable` list in `src/thunks/CMakeLists.txt` (or `_thunks_experimental` while it is still work in progress).
 
 ## 1. `Symbols.conf`: declaring the surface
 
@@ -91,10 +91,11 @@ Each can carry two fields:
 - `passes`: a `pass::PassTagList<...>` of extra passes to apply.
 
 ```cpp
-// SDL_LogMessageV is printf-style, so marshal its variadic tail via the printf builder.
+// SDL_LogMessageV is the va_list form of a printf-style call. It carries no format attribute and
+// its name does not end in "vprintf", so it cannot be auto-detected and is tagged by hand.
 template <>
 struct ProcFnDesc<::SDL_LogMessageV> {
-    _DESC pass::printf<> builder_pass = {};
+    _DESC pass::vprintf<> builder_pass = {};
 };
 ```
 
