@@ -2,6 +2,7 @@
 # in THUNK_DISABLE_LIBRARIES is skipped.
 set(_thunks
     zlib
+    lzma
     SDL2
 )
 
