@@ -3,15 +3,12 @@
 #include "Desc.h"
 #include <lorelei/ThunkInterface/ManifestHost.cpp.inc>
 
-#include <cstdio>
-#include <cstdlib>
-
 namespace lore::thunk {
 
-    // A handful of SDL procs carry a function pointer in a position the automatic
-    // CallbackSubstituter cannot rewrite (a pointer inside an array, or a pointer to a
-    // function pointer), so it emits "unsupported callback type". We supply the Adapt layer
-    // by hand for those, which suppresses the generated default Adapt for the proc.
+    // A couple of SDL procs carry a function pointer in a position the automatic
+    // CallbackSubstituter cannot rewrite (a pointer inside an array), so it emits "unsupported
+    // callback type". We supply the Adapt layer by hand for those, which suppresses the generated
+    // default Adapt for the proc.
 
     // SDL_AudioCVT holds its converters in SDL_AudioFilter filters[]. Those entries are SDL's
     // own host-internal converter functions; SDL fills them in SDL_BuildAudioCVT and calls
@@ -41,41 +38,6 @@ namespace lore::thunk {
     struct ProcCb<::SDL_AudioFilter, GuestToHost, Adapt> {
         static void invoke(void *callback, SDL_AudioCVT *cvt, SDL_AudioFormat format) {
             ProcCb<::SDL_AudioFilter, GuestToHost, Caller>::invoke(callback, cvt, format);
-        }
-    };
-
-    [[noreturn]] static void sdl2_get_callback_unsupported(const char *fn) {
-        std::fprintf(stderr,
-                     "lorethunk SDL2: %s returns a host callback pointer through an out "
-                     "parameter; retrieving callbacks across the guest/host boundary is not "
-                     "supported yet.\n",
-                     fn);
-        std::abort();
-    }
-
-    // The SDL_Get* / SDL_LogGet* queries return a callback into a caller-provided slot (a
-    // pointer to a function pointer). Handing the guest a raw host function pointer would need
-    // a reverse trampoline; until that is implemented these abort with a clear message rather
-    // than silently returning an unusable pointer.
-    template <>
-    struct ProcFn<::SDL_GetEventFilter, GuestToHost, Adapt> {
-        static SDL_bool invoke(SDL_EventFilter *, void **) {
-            sdl2_get_callback_unsupported("SDL_GetEventFilter");
-        }
-    };
-
-    template <>
-    struct ProcFn<::SDL_GetMemoryFunctions, GuestToHost, Adapt> {
-        static void invoke(SDL_malloc_func *, SDL_calloc_func *, SDL_realloc_func *,
-                           SDL_free_func *) {
-            sdl2_get_callback_unsupported("SDL_GetMemoryFunctions");
-        }
-    };
-
-    template <>
-    struct ProcFn<::SDL_LogGetOutputFunction, GuestToHost, Adapt> {
-        static void invoke(SDL_LogOutputFunction *, void **) {
-            sdl2_get_callback_unsupported("SDL_LogGetOutputFunction");
         }
     };
 
