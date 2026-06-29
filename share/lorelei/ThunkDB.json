@@ -6,7 +6,11 @@
                 "libSDL2-2.0"
             ]
         },
-        "libz"
+        "libz",
+        "liblzma",
+        "libc-shim",
+        "libcrypto",
+        "libssl"
     ],
     "reversedThunks": [
         {
