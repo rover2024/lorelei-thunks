@@ -29,12 +29,15 @@ string(REGEX MATCH "^[^-]+" _target_arch "${_target_triplet}")
 if(NOT THUNK_HOST_ARCH)
     if(_target_arch MATCHES "x86_64|amd64")
         set(THUNK_HOST_ARCH "x86_64")
+        set(THUNK_HOST_TRIPLET "x86_64-pc-linux-gnu")
         set(THUNK_HOST_FIXED_REGISTER "r11")
     elseif(_target_arch MATCHES "aarch64|arm64")
         set(THUNK_HOST_ARCH "aarch64")
+        set(THUNK_HOST_TRIPLET "aarch64-unknown-linux-gnu")
         set(THUNK_HOST_FIXED_REGISTER "x16")
     elseif(_target_arch MATCHES "riscv64")
         set(THUNK_HOST_ARCH "riscv64")
+        set(THUNK_HOST_TRIPLET "riscv64-unknown-linux-gnu")
         set(THUNK_HOST_FIXED_REGISTER "t1")
     else()
         message(FATAL_ERROR "lorelei-thunks: unsupported host architecture '${_target_arch}'")
@@ -93,10 +96,15 @@ function(thunk_tlc_generate _name _manifest _out _stat _mode)
     set(multiValueArgs PLUGINS EXTRA_INCLUDES EXTRA_ARGS)
     cmake_parse_arguments(FUNC "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
 
-    set(_target_opt)
-
+    # Parse for the arch this side targets. Guest is always x86_64, host is whatever this build
+    # targets: native, or a cross host when the native TLC cross-generates. Without an explicit host
+    # target the parse would fall back to the build machine's arch, so an x86_64 box could not
+    # generate the host source for e.g. aarch64. The matching sysroot / gcc-toolchain for a cross
+    # parse comes in through THUNK_HTL_EXTRA_ARGS (the host mirror of THUNK_GTL_EXTRA_ARGS).
     if(_mode STREQUAL "guest")
         set(_target_opt -target ${THUNK_GUEST_TRIPLET})
+    else()
+        set(_target_opt -target ${THUNK_HOST_TRIPLET})
     endif()
 
     # Load each Clang pass plugin via the frontend so the generate run can apply it.
