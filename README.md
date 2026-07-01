@@ -44,7 +44,7 @@ cd lorelei-thunks
 cmake -B build -G Ninja \
     -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_INSTALL_PREFIX=$INSTALL_DIR \
-    -Dqmsetup_DIR=$INSTALL_DIR/qmsetup/lib/cmake/qmsetup \
+    -Dqmsetup_DIR=$INSTALL_DIR/lib/cmake/qmsetup \
     -Dlorelei_DIR=$INSTALL_DIR/lib/cmake/lorelei \
     -DTHUNK_BUILD_HOST_TARGETS=TRUE \
     -DTHUNK_BUILD_GUEST_TARGETS=TRUE
@@ -63,7 +63,7 @@ The host ISA differs from the guest x86_64, so the two halves need two different
 cmake -B build-host -G Ninja \
     -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_INSTALL_PREFIX=$INSTALL_DIR \
-    -Dqmsetup_DIR=$INSTALL_DIR/qmsetup/lib/cmake/qmsetup \
+    -Dqmsetup_DIR=$INSTALL_DIR/lib/cmake/qmsetup \
     -Dlorelei_DIR=$INSTALL_DIR/lib/cmake/lorelei \
     -DTHUNK_BUILD_HOST_TARGETS=TRUE \
     -DTHUNK_BUILD_GUEST_TARGETS=FALSE
@@ -77,7 +77,7 @@ cmake -B build-guest -G Ninja \
     -DCMAKE_INSTALL_PREFIX=$INSTALL_DIR/x86_64 \
     -DCMAKE_C_COMPILER=x86_64-linux-gnu-gcc \
     -DCMAKE_CXX_COMPILER=x86_64-linux-gnu-g++ \
-    -Dqmsetup_DIR=$INSTALL_DIR/qmsetup/lib/cmake/qmsetup \
+    -Dqmsetup_DIR=$INSTALL_DIR/lib/cmake/qmsetup \
     -Dlorelei_DIR=$INSTALL_DIR/x86_64/lib/cmake/lorelei \
     -DTHUNK_GEN_SOURCE_DIR=$INSTALL_DIR/share/lorelei/thunks \
     -DTHUNK_BUILD_HOST_TARGETS=FALSE \
