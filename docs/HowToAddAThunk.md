@@ -51,7 +51,7 @@ The recognized sections are:
 - **`[Guest Function]`**: guest functions the host needs to call back into (the `HostToGuest` direction), for example so host code can open the guest's own X display. These are exported from the HTL under a `GTL_` prefix (see [Entry is the exported symbol](#entry-is-the-exported-symbol)).
 - **`[Callback]`**: named callback function-pointer types that cross the boundary.
 
-Another file can be pulled in with `include "<file>"`. In practice the long `[Function]` list is generated once from the library's headers into `Symbols_autogen.conf` and checked in, so a hand-written `Symbols.conf` often only includes it and adds the few extra entries:
+Another file can be pulled in with `include "<file>"`. In practice the long `[Function]` list is generated once from the built library with `DumpSyms.py` (below) into `Symbols_autogen.conf` and checked in, so a hand-written `Symbols.conf` often only includes it and adds the few extra entries:
 
 ```ini
 include "Symbols_autogen.conf"
@@ -60,6 +60,26 @@ include "Symbols_autogen.conf"
 XSync
 XOpenDisplay
 ```
+
+### Generating the list with `DumpSyms.py`
+
+`scripts/DumpSyms.py` produces a `Symbols_autogen.conf` from a built shared object. It runs `nm -D --defined-only` over the object's dynamic symbol table, strips the `@@version` suffix from each name, sorts them, and buckets them into two sections: `T`/`t` (text) symbols become `[Function]`, and `D`/`B`/`R` (data/bss/rodata) symbols become `[Variable]`.
+
+Note that `[Variable]` (thunking an exported global variable) is not supported yet, so DumpSyms emits it only for reference. Drop the `[Variable]` section when you prune the output.
+
+```sh
+python3 scripts/DumpSyms.py /usr/lib/x86_64-linux-gnu/libz.so.1 src/thunks/zlib/Symbols_autogen.conf
+```
+
+Point it at the actual `.so` the thunk will stand in for (follow the soname, e.g. `libz.so.1`, not the `-dev` `libz.so` symlink), so the exported set matches what the guest links against.
+
+If the object is built for another architecture, pass the matching toolchain's `nm` so it can read it:
+
+```sh
+python3 scripts/DumpSyms.py --nm aarch64-linux-gnu-nm ./libfoo.so.1 src/thunks/foo/Symbols_autogen.conf
+```
+
+The output is a starting point, not the final surface. Everything defined lands in `[Function]`/`[Variable]`, so you still prune symbols you do not want to thunk, move guest-callable entries into `[Guest Function]`, and add `[Callback]` entries by hand. Keep those edits in `Symbols.conf`, which `include`s the generated file, so a regenerated `Symbols_autogen.conf` never clobbers them.
 
 ## 2. `Desc.h`: headers and proc descriptors
 
@@ -263,7 +283,7 @@ The common variables are `GTL_ALIAS` / `HTL_ALIAS` (soname symlinks so the GTL c
 
 ## Checklist
 
-1. `src/thunks/<lib>/Symbols.conf`: list the symbols (`[Function]`, `[Guest Function]`, `[Callback]`).
+1. `src/thunks/<lib>/Symbols.conf`: list the symbols (`[Function]`, `[Guest Function]`, `[Callback]`). Seed the `[Function]` list from the built `.so` with `python3 scripts/DumpSyms.py <lib>.so Symbols_autogen.conf`, then prune and add the rest by hand.
 2. `Desc.h`: include the library headers and add any `ProcFnDesc` / `ProcCbDesc` descriptors.
 3. `Manifest_guest.cpp` / `Manifest_host.cpp`: set `LORE_THUNK_CALLBACK_REPLACE` / `LORE_THUNK_AUTO_LINK` as needed, and add any `Entry` / `Adapt` / `Caller` overrides.
 4. `CMakeLists.txt`: `project()`, `include("../AddThunk.cmake")`, set aliases and links, `add_thunk()`.

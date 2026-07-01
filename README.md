@@ -139,8 +139,8 @@ In both cases `LORELEI_ROOT` makes the host runtime read the installed `share/lo
 `src/thunks/zlib` is the smallest worked example. The short version is below. For the full guide (proc descriptors, the proc phases, and how to override them) see [docs/HowToAddAThunk.md](docs/HowToAddAThunk.md). To add a library `<lib>`:
 
 1. Create the directory `src/thunks/<lib>/`.
-2. Write `Desc.h`: include the library's headers and `<lorelei/ThunkInterface/Proc.h>` / `<lorelei/ThunkInterface/PassTags.h>`, then declare any per-proc pass descriptors (`ProcFnDesc` / `ProcCbDesc`, for example to route a variadic function through the printf pass).
-3. Write the symbol list `Symbols.conf`: the functions and callbacks to thunk. It usually just does `include "Symbols_autogen.conf"` and adds a `[Guest Function]` section for any guest symbols the host needs to call back into.
+2. Write the symbol list `Symbols.conf`: the functions and callbacks to thunk. It usually just does `include "Symbols_autogen.conf"` and adds a `[Guest Function]` section for any guest symbols the host needs to call back into.
+3. Write `Desc.h`: include the library's headers and `<lorelei/ThunkInterface/Proc.h>` / `<lorelei/ThunkInterface/PassTags.h>`, then declare any per-proc pass descriptors (`ProcFnDesc` / `ProcCbDesc`, for example to route a variadic function through the printf pass).
 4. Write `Manifest_guest.cpp` and `Manifest_host.cpp`: each includes `Desc.h` and then `<lorelei/ThunkInterface/ManifestGuest.cpp.inc>` or `ManifestHost.cpp.inc`. Put any hand-written `ProcFn` / `ProcCb` overrides here.
 5. Write `CMakeLists.txt`: `project(<libname>)`, `include("../AddThunk.cmake")`, set the convention variables (`GTL_ALIAS`, `*_EXTRA_LINKS`, `*_EXTRA_INCLUDES`, ...), then call `add_thunk()`. See the header of `src/thunks/AddThunk.cmake` for the full list.
 6. Add `<lib>` to the `_thunks_stable` list in `src/thunks/CMakeLists.txt` (or `_thunks_experimental` while it is still work in progress).
