@@ -26,22 +26,34 @@ execute_process(
 )
 string(REGEX MATCH "^[^-]+" _target_arch "${_target_triplet}")
 
+# Auto-detect the host arch from the compiler unless the caller forced it (a cross-generate points the
+# native TLC at another arch with -DTHUNK_HOST_ARCH=...).
 if(NOT THUNK_HOST_ARCH)
     if(_target_arch MATCHES "x86_64|amd64")
         set(THUNK_HOST_ARCH "x86_64")
-        set(THUNK_HOST_TRIPLET "x86_64-pc-linux-gnu")
-        set(THUNK_HOST_FIXED_REGISTER "r11")
     elseif(_target_arch MATCHES "aarch64|arm64")
         set(THUNK_HOST_ARCH "aarch64")
-        set(THUNK_HOST_TRIPLET "aarch64-unknown-linux-gnu")
-        set(THUNK_HOST_FIXED_REGISTER "x16")
     elseif(_target_arch MATCHES "riscv64")
         set(THUNK_HOST_ARCH "riscv64")
-        set(THUNK_HOST_TRIPLET "riscv64-unknown-linux-gnu")
-        set(THUNK_HOST_FIXED_REGISTER "t1")
     else()
         message(FATAL_ERROR "lorelei-thunks: unsupported host architecture '${_target_arch}'")
     endif()
+endif()
+
+# Derive the parse triple and reserved register from the host arch, whether it was auto-detected or
+# forced. The triple drives the TLC -target for the host generate; the register is reserved by the
+# thunk calling convention when the host thunk is compiled.
+if(THUNK_HOST_ARCH STREQUAL "x86_64")
+    set(THUNK_HOST_TRIPLET "x86_64-pc-linux-gnu")
+    set(THUNK_HOST_FIXED_REGISTER "r11")
+elseif(THUNK_HOST_ARCH STREQUAL "aarch64")
+    set(THUNK_HOST_TRIPLET "aarch64-unknown-linux-gnu")
+    set(THUNK_HOST_FIXED_REGISTER "x16")
+elseif(THUNK_HOST_ARCH STREQUAL "riscv64")
+    set(THUNK_HOST_TRIPLET "riscv64-unknown-linux-gnu")
+    set(THUNK_HOST_FIXED_REGISTER "t1")
+else()
+    message(FATAL_ERROR "lorelei-thunks: unsupported host architecture '${THUNK_HOST_ARCH}'")
 endif()
 
 # The lorelei install include directory (carries ThunkInterface/, DLCall/, ...) comes from the
