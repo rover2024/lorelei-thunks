@@ -12,6 +12,7 @@ project(lorethunk
 # ----------------------------------
 option(THUNK_BUILD_HOST_TARGETS "Build host thunk targets" ON)
 option(THUNK_BUILD_GUEST_TARGETS "Build guest thunk targets" OFF)
+option(THUNK_BUILD_TOOLS "Build tool targets" ON)
 option(THUNK_BUILD_TESTS "Build test targets" OFF)
 option(THUNK_BUILD_EXPERIMENTAL_LIBRARIES "Build the experimental, work-in-progress thunks" OFF)
 option(THUNK_INSTALL "Install thunk libraries" ON)

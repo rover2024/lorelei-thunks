@@ -25,6 +25,11 @@ add_subdirectory(libs)
 
 add_subdirectory(thunks)
 
-if(LORE_BUILD_TESTS)
+if(THUNK_BUILD_TOOLS)
+    add_subdirectory(tools)
+endif()
+
+if(THUNK_BUILD_TESTS)
     add_subdirectory(tests)
 endif()
+
